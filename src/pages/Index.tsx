@@ -1,0 +1,256 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Search, ChevronDown, MapPin, School, Heart, Baby, Trophy, GraduationCap, Construction, CheckCircle2, AlertTriangle, XCircle, Clock, Building } from 'lucide-react';
+import MapView from '@/components/MapView';
+import StatusBadge from '@/components/StatusBadge';
+import ObjectSheet from '@/components/ObjectSheet';
+import CameraInspection from '@/components/CameraInspection';
+import HamburgerMenu from '@/components/HamburgerMenu';
+import { useMapObjects } from '@/hooks/useMapObjects';
+import { type InfraObject, type InfraPromise, type ObjectType } from '@/data/infrastructure';
+
+type StatusFilter = 'all' | 'good' | 'mixed' | 'bad';
+type TypeFilter = 'all' | ObjectType;
+
+const TYPE_OPTIONS: { key: TypeFilter; label: string; icon: typeof School }[] = [
+  { key: 'all', label: 'Turi', icon: Building },
+  { key: 'school', label: 'Maktablar', icon: School },
+  { key: 'hospital', label: 'Shifoxonalar', icon: Heart },
+  { key: 'kindergarten', label: "Bog'chalar", icon: Baby },
+  { key: 'sport', label: 'Sport', icon: Trophy },
+  { key: 'university', label: 'Universitetlar', icon: GraduationCap },
+  { key: 'road', label: "Yo'llar", icon: Construction },
+];
+
+const STATUS_OPTIONS: { key: StatusFilter; label: string; icon: typeof CheckCircle2 }[] = [
+  { key: 'all', label: 'Holati', icon: Clock },
+  { key: 'good', label: 'Tasdiqlangan', icon: CheckCircle2 },
+  { key: 'mixed', label: 'Tekshirish kerak', icon: AlertTriangle },
+  { key: 'bad', label: 'Muammolar', icon: XCircle },
+];
+
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const p1 = (lat1 * Math.PI) / 180;
+  const p2 = (lat2 * Math.PI) / 180;
+  const dp = ((lat2 - lat1) * Math.PI) / 180;
+  const dl = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dp / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(meters: number): string {
+  if (meters < 1000) return `${Math.round(meters)} m`;
+  return `${(meters / 1000).toFixed(1)} km`;
+}
+
+export default function Index() {
+  const [selectedObject, setSelectedObject] = useState<InfraObject | null>(null);
+  const [inspectingPromise, setInspectingPromise] = useState<InfraPromise | null>(null);
+  const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [typeOpen, setTypeOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setUserLocation([41.2995, 69.2401]);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+      () => setUserLocation([41.2995, 69.2401]),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, []);
+
+  const { objects: filtered, isLoading, error } = useMapObjects({
+    search,
+    typeFilter,
+    statusFilter,
+    userLocation,
+  });
+
+  const handlePinClick = useCallback((obj: InfraObject) => {
+    setActiveId(obj.id);
+    setFlyTo(obj.coords);
+    const card = cardRefs.current.get(obj.id);
+    card?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, []);
+
+  const handleCardClick = (obj: InfraObject) => {
+    setFlyTo(obj.coords);
+    setActiveId(obj.id);
+    setSelectedObject(obj);
+  };
+
+  const currentType = TYPE_OPTIONS.find(o => o.key === typeFilter)!;
+  const currentStatus = STATUS_OPTIONS.find(o => o.key === statusFilter)!;
+
+  return (
+    <div className="flex justify-center bg-muted min-h-screen">
+      <main className="w-full max-w-[480px] bg-background relative overflow-hidden shadow-2xl" style={{ height: '100dvh' }}>
+
+        {/* Map layer */}
+        <div className="absolute inset-0 z-0">
+          {error && (
+            <div className="absolute top-14 left-2 right-2 z-30 bg-destructive/90 text-destructive-foreground text-xs px-3 py-2 rounded-lg">
+              Xarita ma'lumotlari yuklanmadi. Backend ishlatilayotganini tekshiring.
+            </div>
+          )}
+          <MapView objects={filtered} activeId={activeId} flyTo={flyTo} onPinClick={handlePinClick} userLocation={userLocation} />
+        </div>
+
+        {/* Top controls */}
+        <div className="absolute top-2 left-2 right-2 z-20 flex flex-col gap-1.5">
+          {/* Search + Hamburger row */}
+          <div className="flex gap-2">
+            {/* Hamburger 20% */}
+            <div className="w-[20%] h-[48px]">
+              <HamburgerMenu />
+            </div>
+            {/* Search 80% */}
+            <div className="flex-1 flex items-center bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-md border border-border/50">
+              <Search className="w-4.5 h-4.5 text-muted-foreground mr-2.5 shrink-0" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Maktab, shifoxona qidirish..."
+                className="bg-transparent border-none outline-none text-sm w-full font-medium text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+          </div>
+
+          {/* Filter buttons */}
+          <div className="flex gap-2">
+            {/* Type filter */}
+            <div className="relative flex-1">
+              <button
+                onClick={() => { setTypeOpen(!typeOpen); setStatusOpen(false); }}
+                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <currentType.icon className="w-4 h-4 text-muted-foreground" />
+                  {typeFilter === 'all' ? 'Turi' : currentType.label}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${typeOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {typeOpen && (
+                <div className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50">
+                  {TYPE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => { setTypeFilter(opt.key); setTypeOpen(false); }}
+                      className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${typeFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                    >
+                      <opt.icon className={`w-4 h-4 ${typeFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Status filter */}
+            <div className="relative flex-1">
+              <button
+                onClick={() => { setStatusOpen(!statusOpen); setTypeOpen(false); }}
+                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <currentStatus.icon className="w-4 h-4 text-muted-foreground" />
+                  {statusFilter === 'all' ? 'Holati' : currentStatus.label}
+                </span>
+                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${statusOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {statusOpen && (
+                <div className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50">
+                  {STATUS_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.key}
+                      onClick={() => { setStatusFilter(opt.key); setStatusOpen(false); }}
+                      className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${statusFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                    >
+                      <opt.icon className={`w-4 h-4 ${statusFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom carousel */}
+        <div
+          ref={carouselRef}
+          className="absolute bottom-6 left-0 right-0 z-20 flex gap-3 px-3 overflow-x-auto snap-x snap-mandatory no-scrollbar"
+          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        >
+          {(isLoading ? [] : filtered).map((obj) => {
+            const dist = obj.distanceMeters ?? (userLocation ? getDistance(userLocation[0], userLocation[1], obj.coords[0], obj.coords[1]) : null);
+            return (
+              <div
+                key={obj.id}
+                ref={(el) => { if (el) cardRefs.current.set(obj.id, el); }}
+                onClick={() => handleCardClick(obj)}
+                className={`min-w-[260px] bg-background/95 backdrop-blur-sm p-3 rounded-2xl shadow-lg flex gap-3 snap-center cursor-pointer active:scale-[0.97] transition-all duration-200 border ${
+                  activeId === obj.id ? 'border-primary shadow-primary/15' : 'border-border/40'
+                }`}
+              >
+                <img src={obj.image} className="w-14 h-14 rounded-xl object-cover shrink-0" alt={obj.name} />
+                <div className="flex flex-col justify-center min-w-0 flex-1">
+                  <h3 className="font-bold text-foreground text-sm truncate">{obj.name}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    {dist !== null && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground font-medium">
+                        <MapPin className="w-3 h-3" />
+                        {formatDistance(dist)}
+                      </span>
+                    )}
+                    <span className="text-[10px] text-muted-foreground">
+                      {obj.promiseCount} va'da
+                    </span>
+                  </div>
+                  <StatusBadge status={obj.status} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Close dropdowns on map tap */}
+        {(typeOpen || statusOpen) && (
+          <div className="absolute inset-0 z-10" onClick={() => { setTypeOpen(false); setStatusOpen(false); }} />
+        )}
+
+        {/* Object detail sheet */}
+        <AnimatePresence>
+          {selectedObject && !inspectingPromise && (
+            <ObjectSheet
+              object={selectedObject}
+              onClose={() => setSelectedObject(null)}
+              onInspect={setInspectingPromise}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Camera inspection */}
+        <AnimatePresence>
+          {inspectingPromise && (
+            <CameraInspection
+              promise={inspectingPromise}
+              onClose={() => setInspectingPromise(null)}
+            />
+          )}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}

@@ -1,0 +1,82 @@
+[
+    {
+      "id": 1,
+      "externalId": null,
+      "name": "Омегамед Центр",
+      "type": "medical",
+      "coords": [41.33962663476685, 69.33796974484387],
+      "image": ""
+    },
+    {
+      "id": 2,
+      "externalId": null,
+      "name": "Университет Инха",
+      "type": "university",
+      "coords": [41.338637747185906, 69.33456218259168],
+      "image": ""
+    },
+    {
+      "id": 3,
+      "externalId": null,
+      "name": "Школа №42",
+      "type": "school",
+      "coords": [41.32625608384818, 69.2437247690979],
+      "image": ""
+    },
+    {
+      "id": 4,
+      "externalId": null,
+      "name": "Школа №94",
+      "type": "school",
+      "coords": [41.29593924605679, 69.2834912537537],
+      "image": ""
+    },
+    {
+      "id": 5,
+      "externalId": null,
+      "name": "Школа №60",
+      "type": "school",
+      "coords": [41.29642648391686, 69.2783154120149],
+      "image": ""
+    },
+    {
+      "id": 6,
+      "externalId": null,
+      "name": "Институт электроники",
+      "type": "university",
+      "coords": [41.338449254153744, 69.34102500054541],
+      "image": ""
+    },
+    {
+      "id": 7,
+      "externalId": null,
+      "name": "Институт Химии",
+      "type": "university",
+      "coords": [41.335415759840984, 69.33516873326897],
+      "image": ""
+    },
+    {
+      "id": 8,
+      "externalId": null,
+      "name": "Геология университети ўқув биноси",
+      "type": "university",
+      "coords": [41.341185901144904, 69.3397161041469],
+      "image": ""
+    },
+    {
+      "id": 9,
+      "externalId": null,
+      "name": "Клиническая Больница №5 (Мать И Дитя)",
+      "type": "medical",
+      "coords": [41.33949418215295, 69.33447402163375],
+      "image": ""
+    },
+    {
+      "id": 10,
+      "externalId": null,
+      "name": "Научный центр эндокринологии",
+      "type": "medical",
+      "coords": [41.34010266052189, 69.34190858936824],
+      "image": ""
+    }
+  ]
