@@ -74,9 +74,31 @@ export default function ProfilePage() {
   const currentStatusOption = REPORT_STATUS_OPTIONS.find((o) => o.key === statusFilter) ?? REPORT_STATUS_OPTIONS[0];
   const statusButtonLabel = statusFilter === 'all' ? STATUS_FILTER_DEFAULT : currentStatusOption.label;
 
-  const points = 32904;
+  // Gamification: уровень и баллы на основе подтверждённых заявок пользователя
+  const confirmedReports = useMemo(
+    () => observations.filter((o) => ['confirmed', 'in_resolution', 'resolved'].includes(o.status)).length,
+    [observations],
+  );
+
+  const level = useMemo(() => {
+    if (confirmedReports >= 80) return 5;
+    if (confirmedReports >= 40) return 4;
+    if (confirmedReports >= 15) return 3;
+    if (confirmedReports >= 5) return 2;
+    return 1;
+  }, [confirmedReports]);
+
+  const levelBonus = useMemo(() => {
+    if (level === 5) return 20;
+    if (level === 4) return 15;
+    if (level === 3) return 10;
+    if (level === 2) return 5;
+    return 0;
+  }, [level]);
+
+  const pointsPerReport = 20 + levelBonus;
+  const points = confirmedReports * pointsPerReport;
   const maxPoints = 50000;
-  const level = 2;
   const progressPct = Math.min((points / maxPoints) * 100, 100);
 
   if (!isLoggedIn) return null;

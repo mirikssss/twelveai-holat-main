@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Building, AlertTriangle, MessageSquare, RefreshCw,
-  School, Heart, GraduationCap, CheckCircle2, XCircle,
+  School, Heart, GraduationCap, XCircle,
   TrendingUp, Eye, ChevronRight, ShieldAlert, MapPin,
   Clock, Loader2, ArrowLeft, BarChart3, Zap, Construction, Baby, Trophy,
 } from 'lucide-react';
@@ -18,16 +18,8 @@ import {
 
 type PeriodFilter = '7d' | '30d' | 'all';
 type TypeFilter = 'all' | 'school' | 'hospital' | 'university' | 'road' | 'kindergarten' | 'sport';
-
-const TYPE_OPTIONS: { key: TypeFilter; label: string; icon: typeof School }[] = [
-  { key: 'all', label: 'Barchasi', icon: Building },
-  { key: 'school', label: 'Maktablar', icon: School },
-  { key: 'hospital', label: 'Shifo', icon: Heart },
-  { key: 'kindergarten', label: "Bog'cha", icon: Baby },
-  { key: 'sport', label: 'Sport', icon: Trophy },
-  { key: 'university', label: 'OTM', icon: GraduationCap },
-  { key: 'road', label: "Yo'l", icon: Construction },
-];
+type CityFilter = 'all' | 'tashkent';
+type DistrictFilter = 'all' | 'Mirzo-Ulugbek' | 'Mirobod' | 'Yashnobod' | 'Shaykhontohur' | 'Chilonzor' | 'Yakkasaroy';
 
 const PERIOD_OPTIONS: { key: PeriodFilter; label: string }[] = [
   { key: '7d', label: '7 kun' },
@@ -71,6 +63,11 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [period, setPeriod] = useState<PeriodFilter>('7d');
+  const [cityFilter, setCityFilter] = useState<CityFilter>('tashkent');
+  const [districtFilter, setDistrictFilter] = useState<DistrictFilter>('all');
+  const [cityOpen, setCityOpen] = useState(false);
+  const [districtOpen, setDistrictOpen] = useState(false);
+  const [typeOpen, setTypeOpen] = useState(false);
 
   const apiType = typeFilter === 'hospital' ? 'medical' : typeFilter === 'all' ? 'all' : typeForApi(typeFilter);
 
@@ -89,12 +86,104 @@ export default function Dashboard() {
   const handleRefresh = useCallback(() => { refetch(); }, [refetch]);
 
   const summary = data?.summary;
-  const topObjects = data?.topAttentionObjects ?? [];
-  const problemCats = data?.problemCategories ?? [];
-  const signals = data?.latestSignals ?? [];
-  const noVerif = data?.objectsWithoutVerifications ?? [];
-  const geo = data?.geoSummary ?? [];
-  const districts = data?.districtSummary ?? [];
+  const allTopObjects = data?.topAttentionObjects ?? [];
+  const allProblemCats = data?.problemCategories ?? [];
+  const allSignals = data?.latestSignals ?? [];
+  const allNoVerif = data?.objectsWithoutVerifications ?? [];
+  const allGeo = data?.geoSummary ?? [];
+  const allDistricts = data?.districtSummary ?? [];
+
+  const activeDistricts = useMemo(() => {
+    if (districtFilter === 'all') return allDistricts;
+    const namePart =
+      districtFilter === 'Mirzo-Ulugbek' ? 'Мирзо-Улугбек' :
+      districtFilter === 'Mirobod' ? 'Мирабад' :
+      districtFilter === 'Yashnobod' ? 'Яшнобод' :
+      districtFilter === 'Shaykhontohur' ? 'Шайхантахур' :
+      districtFilter === 'Chilonzor' ? 'Чиланзар' :
+      districtFilter === 'Yakkasaroy' ? 'Яккасарой' : '';
+    if (!namePart) return allDistricts;
+    return allDistricts.filter((d) => d.district.includes(namePart));
+  }, [allDistricts, districtFilter]);
+
+  const filteredByDistrict = useMemo(() => {
+    if (districtFilter === 'all') {
+      return {
+        top: allTopObjects,
+        cats: allProblemCats,
+        sigs: allSignals,
+        nov: allNoVerif,
+        geo: allGeo,
+      };
+    }
+    const matchDistrict = (d?: string | null) => {
+      if (!d) return false;
+      const dn = d.toLowerCase();
+      if (districtFilter === 'Mirzo-Ulugbek') return dn.includes('мирзо-улугбек');
+      if (districtFilter === 'Mirobod') return dn.includes('мираба');
+      if (districtFilter === 'Yashnobod') return dn.includes('яшнобод');
+      if (districtFilter === 'Shaykhontohur') return dn.includes('шайхантахур');
+      if (districtFilter === 'Chilonzor') return dn.includes('чиланза');
+      if (districtFilter === 'Yakkasaroy') return dn.includes('яккасарой');
+      return true;
+    };
+    const top = allTopObjects.filter((o) => matchDistrict(o.district));
+    const sigs = allSignals.filter((s) => matchDistrict(s.district));
+    const nov = allNoVerif.filter((o) => matchDistrict(o.district));
+    const visibleIds = new Set([...top.map((o) => o.id), ...nov.map((o) => o.id), ...sigs.map((s) => s.objectId)]);
+    return {
+      top,
+      cats: allProblemCats,
+      sigs,
+      nov,
+      geo: allGeo.filter((o) => visibleIds.has(o.id)),
+    };
+  }, [allTopObjects, allProblemCats, allSignals, allNoVerif, allGeo, districtFilter]);
+
+  const topObjects = filteredByDistrict.top.slice(0, 5);
+  const signals = filteredByDistrict.sigs.slice(0, 5);
+  const noVerif = filteredByDistrict.nov;
+  const geo = filteredByDistrict.geo;
+  const districts = activeDistricts;
+
+  const problemCats = useMemo(() => {
+    if (districtFilter === 'all') return filteredByDistrict.cats;
+    const sigs = filteredByDistrict.sigs;
+    const byCat = sigs.reduce<Map<string, { count: number; objects: Set<number> }>>((acc, s) => {
+      const cat = s.category || 'Boshqa';
+      const cur = acc.get(cat) || { count: 0, objects: new Set<number>() };
+      cur.count += 1;
+      cur.objects.add(s.objectId);
+      acc.set(cat, cur);
+      return acc;
+    }, new Map());
+    return Array.from(byCat.entries())
+      .map(([categoryLabel, data]) => ({
+        categoryLabel,
+        issueCount: data.count,
+        affectedObjectsCount: data.objects.size,
+      }))
+      .sort((a, b) => b.issueCount - a.issueCount);
+  }, [districtFilter, filteredByDistrict.cats, filteredByDistrict.sigs]);
+
+  const summaryFiltered = useMemo(() => {
+    if (districtFilter === 'all') {
+      return summary
+        ? {
+            totalObjects: summary.totalObjects,
+            attentionObjects: summary.attentionObjects,
+            checkingObjects: summary.checkingObjects,
+            newObservationsCount: summary.newObservationsCount,
+          }
+        : { totalObjects: 0, attentionObjects: 0, checkingObjects: 0, newObservationsCount: 0 };
+    }
+    return {
+      totalObjects: geo.length,
+      attentionObjects: geo.filter((o) => o.status === 'bad').length,
+      checkingObjects: geo.filter((o) => o.status === 'mixed').length,
+      newObservationsCount: filteredByDistrict.sigs.length,
+    };
+  }, [districtFilter, summary, geo, filteredByDistrict.sigs.length]);
 
   const maxIssue = problemCats[0]?.issueCount || 1;
 
@@ -126,39 +215,160 @@ export default function Dashboard() {
             </button>
           </div>
 
-          {/* Type filter chips */}
-          <div className="flex gap-2 px-4 pb-2 overflow-x-auto no-scrollbar">
-            {TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => setTypeFilter(opt.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
-                  typeFilter === opt.key
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'bg-secondary text-muted-foreground hover:bg-secondary/70'
-                }`}
-              >
-                <opt.icon className="w-3.5 h-3.5" />
-                {opt.label}
-              </button>
-            ))}
-          </div>
+          {/* Filters: city, district, type, period */}
+          <div className="flex flex-col gap-2 px-4 pb-3">
+            <div className="flex gap-2">
+              {/* City */}
+              <div className="relative flex-1">
+                <button
+                  onClick={() => { setCityOpen(!cityOpen); setDistrictOpen(false); setTypeOpen(false); }}
+                  className="w-full flex items-center justify-between bg-background px-4 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <Building className="w-4 h-4 text-muted-foreground" />
+                    {cityFilter === 'all' ? 'Barcha shaharlari' : 'Toshkent shahri'}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${cityOpen ? 'rotate-90' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {cityOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-40 overflow-hidden"
+                    >
+                      {[
+                        { key: 'tashkent' as CityFilter, label: 'Toshkent shahri' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setCityFilter(opt.key); setCityOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${
+                            cityFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          <Building className={`w-4 h-4 shrink-0 ${cityFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
 
-          {/* Period selector */}
-          <div className="flex gap-1.5 px-4 pb-3">
-            {PERIOD_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => setPeriod(opt.key)}
-                className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold text-center transition-colors ${
-                  period === opt.key
-                    ? 'bg-foreground text-background'
-                    : 'bg-secondary text-muted-foreground'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+              {/* District */}
+              <div className="relative flex-1">
+                <button
+                  onClick={() => { setDistrictOpen(!districtOpen); setCityOpen(false); setTypeOpen(false); }}
+                  className="w-full flex items-center justify-between bg-background px-4 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    {districtFilter === 'all' ? 'Barcha tumanlar' : 'Tanlangan tuman'}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${districtOpen ? 'rotate-90' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {districtOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-40 overflow-hidden max-h-60 overflow-y-auto"
+                    >
+                      {[
+                        { key: 'all' as DistrictFilter, label: 'Barcha tumanlar' },
+                        { key: 'Mirzo-Ulugbek' as DistrictFilter, label: "Mirzo Ulug'bek tumani" },
+                        { key: 'Mirobod' as DistrictFilter, label: 'Mirobod tumani' },
+                        { key: 'Yashnobod' as DistrictFilter, label: 'Yashnobod tumani' },
+                        { key: 'Shaykhontohur' as DistrictFilter, label: 'Shayxontohur tumani' },
+                        { key: 'Chilonzor' as DistrictFilter, label: 'Chilonzor tumani' },
+                        { key: 'Yakkasaroy' as DistrictFilter, label: 'Yakkasaroy tumani' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setDistrictFilter(opt.key); setDistrictOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${
+                            districtFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          <MapPin className={`w-4 h-4 shrink-0 ${districtFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              {/* Type */}
+              <div className="relative flex-1">
+                <button
+                  onClick={() => { setTypeOpen(!typeOpen); setCityOpen(false); setDistrictOpen(false); }}
+                  className="w-full flex items-center justify-between bg-background px-4 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <School className="w-4 h-4 text-muted-foreground" />
+                    {typeFilter === 'all' ? 'Barcha obyekt turlari' : typeLabel(typeFilter)}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${typeOpen ? 'rotate-90' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {typeOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.18 }}
+                      className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-40 overflow-hidden"
+                    >
+                      {[
+                        { key: 'all' as TypeFilter, label: 'Barchasi', icon: Building },
+                        { key: 'school' as TypeFilter, label: 'Maktablar', icon: School },
+                        { key: 'hospital' as TypeFilter, label: 'Shifo', icon: Heart },
+                        { key: 'kindergarten' as TypeFilter, label: "Bog'cha", icon: Baby },
+                        { key: 'sport' as TypeFilter, label: 'Sport', icon: Trophy },
+                        { key: 'university' as TypeFilter, label: 'OTM', icon: GraduationCap },
+                        { key: 'road' as TypeFilter, label: "Yo'l", icon: Construction },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setTypeFilter(opt.key); setTypeOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${
+                            typeFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'
+                          }`}
+                        >
+                          <opt.icon className={`w-4 h-4 shrink-0 ${typeFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Period */}
+              <div className="flex-1 flex gap-1.5">
+                {PERIOD_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setPeriod(opt.key)}
+                    className={`flex-1 py-2 rounded-xl text-[11px] font-semibold text-center transition-colors ${
+                      period === opt.key
+                        ? 'bg-foreground text-background'
+                        : 'bg-secondary text-muted-foreground'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -187,13 +397,13 @@ export default function Dashboard() {
             ) : (
               <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
 
-                {/* ── KPI Cards ─────────────────────────────────────────── */}
+                {/* ── KPI Cards (filtering applies) ──────────────────────── */}
                 <div className="grid grid-cols-2 gap-2.5 p-4">
                   {[
-                    { label: 'Jami obyektlar', value: summary?.totalObjects ?? 0, icon: Building, color: 'text-primary', bg: 'bg-primary/10' },
-                    { label: 'Muammoli', value: summary?.attentionObjects ?? 0, icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-                    { label: 'Tekshiruvda', value: summary?.checkingObjects ?? 0, icon: AlertTriangle, color: 'text-warning', bg: 'bg-warning/10' },
-                    { label: 'Yangi xabarlar', value: summary?.newObservationsCount ?? 0, icon: MessageSquare, color: 'text-primary', bg: 'bg-primary/10' },
+                    { label: 'Jami obyektlar', value: summaryFiltered.totalObjects, icon: Building, color: 'text-primary', bg: 'bg-primary/10' },
+                    { label: 'Muammoli', value: summaryFiltered.attentionObjects, icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
+                    { label: 'Tekshiruvda', value: summaryFiltered.checkingObjects, icon: AlertTriangle, color: 'text-warning', bg: 'bg-warning/10' },
+                    { label: 'Yangi xabarlar', value: summaryFiltered.newObservationsCount, icon: MessageSquare, color: 'text-primary', bg: 'bg-primary/10' },
                   ].map((kpi, i) => (
                     <motion.div
                       key={kpi.label}
@@ -210,22 +420,6 @@ export default function Dashboard() {
                       <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{kpi.label}</p>
                     </motion.div>
                   ))}
-                </div>
-
-                {/* ── Activity row ──────────────────────────────────────── */}
-                <div className="flex gap-2.5 px-4 mb-4">
-                  <div className="flex-1 bg-card rounded-2xl border border-border p-3.5 text-center">
-                    <p className="text-xl font-black text-foreground">{summary?.verificationsCount ?? 0}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-success" /> Tekshiruvlar
-                    </p>
-                  </div>
-                  <div className="flex-1 bg-card rounded-2xl border border-border p-3.5 text-center">
-                    <p className="text-xl font-black text-foreground">{summary?.confirmedObjects ?? 0}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 flex items-center justify-center gap-1">
-                      <CheckCircle2 className="w-3 h-3 text-success" /> Tasdiqlangan
-                    </p>
-                  </div>
                 </div>
 
                 {/* ── Mini-map ──────────────────────────────────────────── */}

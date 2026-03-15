@@ -33,6 +33,9 @@ const STATUS_OPTIONS: { key: StatusFilter; label: string; icon: typeof CheckCirc
   { key: 'bad', label: 'Muammolar', icon: XCircle },
 ];
 
+const GEO_CACHE_KEY = 'holat_map_geo';
+const GEO_CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 min
+
 function getDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3;
   const p1 = (lat1 * Math.PI) / 180;
@@ -58,20 +61,37 @@ export default function Index() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [typeOpen, setTypeOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(GEO_CACHE_KEY);
+      if (!raw) return null;
+      const { lat, lng, ts } = JSON.parse(raw);
+      if (typeof lat !== 'number' || typeof lng !== 'number' || !ts) return null;
+      if (Date.now() - ts > GEO_CACHE_MAX_AGE_MS) return null;
+      return [lat, lng];
+    } catch {
+      return null;
+    }
+  });
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     if (!navigator.geolocation) {
-      setUserLocation([41.2995, 69.2401]);
+      setUserLocation((prev) => prev ?? [41.2995, 69.2401]);
       return;
     }
+    const saveCache = (lat: number, lng: number) => {
+      try {
+        sessionStorage.setItem(GEO_CACHE_KEY, JSON.stringify({ lat, lng, ts: Date.now() }));
+      } catch {}
+    };
     let settled = false;
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        saveCache(next[0], next[1]);
         if (!settled) {
           settled = true;
           setUserLocation(next);
@@ -83,7 +103,13 @@ export default function Index() {
           return d > 0.0005 ? next : prev;
         });
       },
-      () => setUserLocation((prev) => prev ?? [41.2995, 69.2401]),
+      () => {
+        setUserLocation((prev) => {
+          const fallback = prev ?? [41.2995, 69.2401];
+          saveCache(fallback[0], fallback[1]);
+          return fallback;
+        });
+      },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);

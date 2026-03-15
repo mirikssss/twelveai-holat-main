@@ -27,6 +27,7 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
   const [submitting, setSubmitting] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState(false);
+  const [geoResolving, setGeoResolving] = useState(true);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const startCamera = useCallback(async () => {
@@ -53,10 +54,21 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
   }, []);
 
   useEffect(() => {
+    if (!navigator.geolocation) {
+      setGeoError(true);
+      setGeoResolving(false);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => setGeoError(true),
-      { enableHighAccuracy: true, timeout: 10000 }
+      (pos) => {
+        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGeoResolving(false);
+      },
+      () => {
+        setGeoError(true);
+        setGeoResolving(false);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
     );
   }, []);
 
@@ -135,6 +147,27 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
       transition={{ duration: 0.2 }}
       className="absolute inset-0 z-50 bg-foreground flex flex-col"
     >
+      {/* Geo resolving overlay */}
+      <AnimatePresence>
+        {geoResolving && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 z-[70] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center px-8"
+          >
+            <Loader2 className="w-12 h-12 text-white animate-spin mb-4" />
+            <p className="text-base font-semibold text-white text-center">
+              Kuting, joylashuvingizni aniqlayapmiz
+            </p>
+            <p className="text-sm text-white/70 text-center mt-1">
+              Tekshiruv uchun joylashuv talab qilinadi
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="p-5 flex justify-between items-center">
         <div>
@@ -237,11 +270,13 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
               transition={{ delay: 0.1, type: 'spring', damping: 20 }}
               className="flex flex-col items-center text-center"
             >
-              <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-5">
+              <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-8 h-8 text-success" />
               </div>
-              <h2 className="text-xl font-bold text-background mb-2">{successMessage}</h2>
-              <p className="text-sm text-background/60 mb-6">{promise.title}</p>
+              <h2 className="text-xl font-bold text-background mb-1">{successMessage}</h2>
+              <p className="text-sm text-background/60 mb-3">{promise.title}</p>
+              <p className="text-3xl font-black text-background mb-1">+10</p>
+              <p className="text-[11px] text-background/70 mb-4">Ballar moderatorlar tasdig'idan so'ng hisobga olinadi</p>
               <div className="w-48 h-1 bg-background/10 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: '100%' }}
