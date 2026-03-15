@@ -225,9 +225,9 @@ export default function Index() {
           </div>
         </div>
 
-        {/* Bottom carousel — only after geolocation known, with animation */}
+        {/* Bottom carousel — only after geolocation known, hide when object sheet is open */}
         <AnimatePresence>
-          {userLocation && (
+          {userLocation && !selectedObject && (
             <motion.div
               ref={carouselRef}
               initial={{ opacity: 0, y: 24 }}
