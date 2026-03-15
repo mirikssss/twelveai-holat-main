@@ -8,6 +8,13 @@ import type { InfraObject, PromiseStatus } from '@/data/infrastructure';
 const RAW_BASE = (typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) || '';
 const BASE = RAW_BASE.replace(/\/+$/, '');
 
+/** Prefix relative asset paths (e.g. /medical/photo.jpg) with backend origin so images load in production. */
+function assetUrl(path: string): string {
+  if (!path || !BASE) return path;
+  if (path.startsWith('http')) return path;
+  return `${BASE}${path.startsWith('/') ? '' : '/'}${path}`;
+}
+
 export type MapObjectType = 'school' | 'university' | 'medical';
 export type MapObjectStatus = PromiseStatus;
 
@@ -66,7 +73,7 @@ export function toInfraObject(m: MapObject): InfraObject {
     address: m.address ?? '',
     status: m.status,
     coords: m.coords,
-    image: m.image || '',
+    image: assetUrl(m.image) || '',
     established: m.established ?? undefined,
     district: m.district ?? undefined,
     capitalRepair: m.capitalRepair ?? undefined,
@@ -259,7 +266,7 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
     address: d.address ?? '',
     status: detailStatusToPromiseStatus(d.objectStatus?.code ?? ''),
     coords,
-    image: d.image ?? '',
+    image: assetUrl(d.image ?? ''),
     established: d.passport?.established ?? undefined,
     district: d.district ?? undefined,
     capitalRepair: d.passport?.capitalRepair ?? undefined,
@@ -284,7 +291,7 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
       category: obs.category,
       text: obs.text,
       time: obs.timeLabel ?? '',
-      photos: obs.photos ?? [],
+      photos: (obs.photos ?? []).map(assetUrl),
       priority: obs.priority ?? 0,
     })),
     latestObservation:
@@ -295,7 +302,7 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
             text: (d.latestObservation as { text?: string }).text ?? '',
             time: (d.latestObservation as { timeLabel?: string }).timeLabel ?? '',
             photos: Array.isArray((d.latestObservation as { photos?: string[] }).photos)
-              ? (d.latestObservation as { photos: string[] }).photos
+              ? (d.latestObservation as { photos: string[] }).photos.map(assetUrl)
               : [],
             priority: typeof (d.latestObservation as { priority?: number }).priority === 'number'
               ? (d.latestObservation as { priority: number }).priority
