@@ -83,11 +83,14 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
       .filter(pc => pc.status !== 'gray');
   }, [observationsByCategory]);
 
-  const latestObservation =
-    object.latestObservation ??
-    (object.observations.length > 0
-      ? object.observations.reduce((a, b) => (a.priority > b.priority ? a : b))
-      : null);
+  const latestObservation = useMemo(() => {
+    const confirmedStatuses = ['confirmed', 'in_resolution', 'resolved'];
+    const confirmedOnly = object.observations.filter(
+      (o) => o.status && confirmedStatuses.includes(o.status)
+    );
+    if (confirmedOnly.length === 0) return null;
+    return confirmedOnly[0];
+  }, [object.observations]);
 
   return (
     <>
@@ -328,7 +331,6 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
                 onObjectUpdated({
                   ...object,
                   observations: newObs,
-                  latestObservation: obs,
                 });
               }
             }}

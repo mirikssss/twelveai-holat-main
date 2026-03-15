@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, LogOut, FileText, Loader2, ShoppingCart, CheckCircle2, Clock, Wrench, XCircle } from 'lucide-react';
+import { ArrowLeft, LogOut, FileText, Loader2, ShoppingCart, CheckCircle2, Clock, Wrench, XCircle, ChevronDown, Tag } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchUserObservations, type UserObservation } from '@/api/mapApi';
 import ObservationStatusBadge from '@/components/ObservationStatusBadge';
@@ -9,6 +9,18 @@ import ReportDetailSheet from '@/components/ReportDetailSheet';
 
 const TIMELINE_KEYS = ['created', 'confirmed', 'in_resolution', 'resolved'] as const;
 const TIMELINE_ICONS = { created: Clock, confirmed: CheckCircle2, in_resolution: Wrench, resolved: CheckCircle2 };
+
+const CATEGORY_FILTER_DEFAULT = 'Kategoriya';
+const STATUS_FILTER_DEFAULT = 'Holat';
+
+const REPORT_STATUS_OPTIONS: { key: string; label: string; icon: typeof Clock }[] = [
+  { key: 'all', label: 'Barchasi', icon: FileText },
+  { key: 'pending', label: "Ko'rib chiqilmoqda", icon: Clock },
+  { key: 'confirmed', label: 'Tasdiqlandi', icon: CheckCircle2 },
+  { key: 'in_resolution', label: 'Hal qilinmoqda', icon: Wrench },
+  { key: 'resolved', label: 'Hal qilindi', icon: CheckCircle2 },
+  { key: 'rejected', label: 'Rad etildi', icon: XCircle },
+];
 
 function getActiveIdx(status: string): number {
   if (status === 'rejected') return 1;
@@ -28,6 +40,10 @@ export default function ProfilePage() {
   const [observations, setObservations] = useState<UserObservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedObs, setSelectedObs] = useState<UserObservation | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoggedIn) { navigate('/auth', { replace: true }); return; }
@@ -40,6 +56,23 @@ export default function ProfilePage() {
   const handleLogout = () => { logout(); navigate('/', { replace: true }); };
 
   const initials = user?.name ? user.name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2) : '??';
+
+  const categoryOptions = useMemo(() => {
+    const cats = Array.from(new Set(observations.map((o) => o.category))).sort();
+    return [{ key: 'all', label: 'Barchasi' }, ...cats.map((c) => ({ key: c, label: c }))];
+  }, [observations]);
+
+  const filteredObservations = useMemo(() => {
+    return observations.filter((obs) => {
+      if (categoryFilter !== 'all' && obs.category !== categoryFilter) return false;
+      if (statusFilter !== 'all' && obs.status !== statusFilter) return false;
+      return true;
+    });
+  }, [observations, categoryFilter, statusFilter]);
+
+  const currentCategoryLabel = categoryFilter === 'all' ? CATEGORY_FILTER_DEFAULT : (categoryOptions.find((o) => o.key === categoryFilter)?.label ?? categoryFilter);
+  const currentStatusOption = REPORT_STATUS_OPTIONS.find((o) => o.key === statusFilter) ?? REPORT_STATUS_OPTIONS[0];
+  const statusButtonLabel = statusFilter === 'all' ? STATUS_FILTER_DEFAULT : currentStatusOption.label;
 
   const points = 32904;
   const maxPoints = 50000;
@@ -105,8 +138,81 @@ export default function ProfilePage() {
             <div className="flex items-center gap-2 mb-3">
               <FileText className="w-4 h-4 text-muted-foreground" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Mening arizalarim ({observations.length})
+                Mening arizalarim ({filteredObservations.length})
               </h2>
+            </div>
+
+            {/* Filters — same design as map page */}
+            <div className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <button
+                  onClick={() => { setCategoryOpen(!categoryOpen); setStatusOpen(false); }}
+                  className="w-full flex items-center justify-between bg-background px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <Tag className="w-4 h-4 shrink-0 text-muted-foreground" />
+                    {currentCategoryLabel}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${categoryOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {categoryOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50 overflow-hidden max-h-56 overflow-y-auto"
+                    >
+                      {categoryOptions.map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setCategoryFilter(opt.key); setCategoryOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${categoryFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                        >
+                          <Tag className={`w-4 h-4 shrink-0 ${categoryFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="relative flex-1">
+                <button
+                  onClick={() => { setStatusOpen(!statusOpen); setCategoryOpen(false); }}
+                  className="w-full flex items-center justify-between bg-background px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                >
+                  <span className="flex items-center gap-2 truncate">
+                    <currentStatusOption.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                    {statusButtonLabel}
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${statusOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {statusOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50 overflow-hidden"
+                    >
+                      {REPORT_STATUS_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.key}
+                          onClick={() => { setStatusFilter(opt.key); setStatusOpen(false); }}
+                          className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${statusFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                        >
+                          <opt.icon className={`w-4 h-4 shrink-0 ${statusFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                          {opt.label}
+                        </button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             {loading ? (
@@ -118,9 +224,13 @@ export default function ProfilePage() {
                 <FileText className="w-12 h-12 text-muted-foreground/20 mx-auto mb-3" />
                 <p className="text-sm text-muted-foreground">Siz hali muammo haqida xabar yubormadingiz</p>
               </motion.div>
+            ) : filteredObservations.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground">Tanlangan filtrlarga mos arizalar topilmadi</p>
+              </div>
             ) : (
               <motion.div variants={stagger} initial="hidden" animate="show" className="space-y-3">
-                {observations.map((obs) => {
+                {filteredObservations.map((obs) => {
                   const activeIdx = getActiveIdx(obs.status);
                   const isRejected = obs.status === 'rejected';
                   const steps = isRejected
