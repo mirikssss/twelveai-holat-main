@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, CheckCircle2, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import type { InfraPromise } from '@/data/infrastructure';
 import { submitVerification, type VerificationError } from '@/api/mapApi';
@@ -27,6 +27,7 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
   const [submitting, setSubmitting] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const startCamera = useCallback(async () => {
     try {
@@ -94,8 +95,6 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
         userLocation,
       });
 
-      toast.success(result.message, { description: promise.title });
-
       if (onVerified) {
         onVerified({
           id: result.updatedPromiseItem.id,
@@ -106,7 +105,8 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
       }
 
       stream?.getTracks().forEach(t => t.stop());
-      onClose();
+      setSuccessMessage(result.message || "Tekshiruv muvaffaqiyatli yuborildi");
+      setTimeout(() => { onClose(); }, 5000);
     } catch (err) {
       const verErr = err as VerificationError;
       if (verErr.error === 'Too far from object') {
@@ -221,6 +221,39 @@ export default function CameraInspection({ promise, objectId, onClose, onVerifie
           className="w-full bg-background/10 border border-background/20 rounded-xl px-4 py-3 text-background text-sm outline-none focus:border-background/40 placeholder:text-background/30"
         />
       </div>
+
+      {/* Success overlay */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[60] bg-foreground flex flex-col items-center justify-center px-8"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: 'spring', damping: 20 }}
+              className="flex flex-col items-center text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-5">
+                <CheckCircle2 className="w-8 h-8 text-success" />
+              </div>
+              <h2 className="text-xl font-bold text-background mb-2">{successMessage}</h2>
+              <p className="text-sm text-background/60 mb-6">{promise.title}</p>
+              <div className="w-48 h-1 bg-background/10 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: '100%' }}
+                  animate={{ width: '0%' }}
+                  transition={{ duration: 5, ease: 'linear' }}
+                  className="h-full bg-success rounded-full"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

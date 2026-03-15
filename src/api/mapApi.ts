@@ -140,6 +140,7 @@ export interface ObjectDetailResponse {
     timeLabel: string;
     photos: string[];
     priority: number;
+    status?: string;
   }>;
 }
 
@@ -211,6 +212,35 @@ export interface SubmitObservationBody {
   text: string;
   photo: string;
   userLocation: { lat: number; lng: number };
+  userPhone?: string;
+  userName?: string;
+}
+
+export interface UserObservation {
+  id: string;
+  objectId: number;
+  objectName: string;
+  category: string;
+  text: string;
+  createdAt: string;
+  updatedAt: string;
+  timeLabel: string;
+  photos: string[];
+  priority: number;
+  status: string;
+  confirmedAt: string | null;
+  resolvedAt: string | null;
+  rejectedAt: string | null;
+}
+
+export async function fetchUserObservations(phone: string): Promise<UserObservation[]> {
+  const res = await fetch(`${BASE}/api/users/${encodeURIComponent(phone)}/observations`);
+  if (!res.ok) throw new Error(`User observations error: ${res.status}`);
+  const data: UserObservation[] = await res.json();
+  return data.map((obs) => ({
+    ...obs,
+    photos: (obs.photos || []).map(assetUrl),
+  }));
 }
 
 export interface SubmitObservationResponse {
@@ -293,6 +323,7 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
       time: obs.timeLabel ?? '',
       photos: (obs.photos ?? []).map(assetUrl),
       priority: obs.priority ?? 0,
+      status: obs.status || 'confirmed',
     })),
     latestObservation:
       d.latestObservation && typeof d.latestObservation === 'object'

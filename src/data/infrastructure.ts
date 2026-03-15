@@ -21,6 +21,7 @@ export interface Observation {
   time: string;
   photos: string[];
   priority: number;
+  status?: string;
 }
 
 export interface InfraObject {

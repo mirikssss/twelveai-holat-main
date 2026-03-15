@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ArrowRight } from 'lucide-react';
 import type { InfraPromise } from '@/data/infrastructure';
 
 interface Props {
@@ -10,6 +10,7 @@ export default function PromiseItem({ promise, onInspect }: Props) {
   const total = promise.confirmed + promise.reported;
   const ratio = total > 0 ? (promise.confirmed / total) * 100 : 0;
   const isPerfect = ratio >= 95;
+  const hasNoReviews = total === 0;
 
   return (
     <div className="py-4 border-b border-border last:border-0">
@@ -29,19 +30,31 @@ export default function PromiseItem({ promise, onInspect }: Props) {
         </button>
       </div>
 
-      <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
-        <div style={{ width: `${ratio}%` }} className="h-full bg-success transition-all duration-500" />
-        <div style={{ width: `${100 - ratio}%` }} className="h-full bg-destructive transition-all duration-500" />
-      </div>
+      {hasNoReviews ? (
+        <button
+          onClick={() => onInspect(promise)}
+          className="w-full mt-1 py-2.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
+        >
+          <span className="text-xs font-bold text-primary">Birinchi bo'lib tekshiring!</span>
+          <ArrowRight className="w-3.5 h-3.5 text-primary" />
+        </button>
+      ) : (
+        <>
+          <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden flex">
+            <div style={{ width: `${ratio}%` }} className="h-full bg-success transition-all duration-500" />
+            <div style={{ width: `${100 - ratio}%` }} className="h-full bg-destructive transition-all duration-500" />
+          </div>
 
-      <div className="flex justify-between mt-2">
-        <span className="text-[11px] text-muted-foreground font-medium">
-          <span className="text-success font-bold">{promise.confirmed}</span> Tasdiqlangan
-        </span>
-        <span className="text-[11px] text-muted-foreground font-medium">
-          <span className="text-destructive font-bold">{promise.reported}</span> Muammo
-        </span>
-      </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-[11px] text-muted-foreground font-medium">
+              <span className="text-success font-bold">{promise.confirmed}</span> Tasdiqlangan
+            </span>
+            <span className="text-[11px] text-muted-foreground font-medium">
+              <span className="text-destructive font-bold">{promise.reported}</span> Muammo
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }

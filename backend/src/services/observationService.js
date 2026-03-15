@@ -10,7 +10,7 @@ function generateId() {
 }
 
 function submitObservation(objectId, body) {
-  const { category, text, photo, userLocation } = body;
+  const { category, text, photo, userLocation, userPhone, userName } = body;
 
   if (!category || typeof category !== 'string') {
     throw { status: 400, body: { error: 'Missing category', message: 'Kategoriyani tanlang' } };
@@ -61,8 +61,15 @@ function submitObservation(objectId, body) {
     category: category.trim(),
     text: text.trim(),
     createdAt: now,
+    updatedAt: now,
     photos: [photo],
     priority: 2,
+    status: 'pending',
+    userPhone: userPhone || null,
+    userName: userName || null,
+    confirmedAt: null,
+    resolvedAt: null,
+    rejectedAt: null,
   };
 
   let details = getDetailsByObjectId(numId);

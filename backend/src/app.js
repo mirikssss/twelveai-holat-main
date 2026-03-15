@@ -4,6 +4,7 @@ const path = require('path');
 
 const mapRoutes = require('./routes/mapRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
+const { getUserObs } = require('./controllers/userController');
 
 const createApp = () => {
   const app = express();
@@ -24,6 +25,7 @@ const createApp = () => {
 
   app.use('/api/map', mapRoutes);
   app.use('/api/objects', verificationRoutes);
+  app.get('/api/users/:phone/observations', getUserObs);
 
   // simple error handler
   // eslint-disable-next-line no-unused-vars

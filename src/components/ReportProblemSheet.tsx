@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { motion } from 'framer-motion';
-import { X, Camera, Send, Droplets, Zap, Wifi, ShieldAlert, Wrench, HelpCircle, Users, Stethoscope, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Camera, Send, Droplets, Zap, Wifi, ShieldAlert, Wrench, HelpCircle, Users, Stethoscope, Loader2, CheckCircle2 } from 'lucide-react';
 import { submitObservation, type VerificationError } from '@/api/mapApi';
+import { useAuth } from '@/hooks/useAuth';
 import type { Observation } from '@/data/infrastructure';
 import { toast } from 'sonner';
 
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export default function ReportProblemSheet({ objectName, objectId, onClose, onObservationAdded }: Props) {
+  const { user, isLoggedIn } = useAuth();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export default function ReportProblemSheet({ objectName, objectId, onClose, onOb
   const [submitting, setSubmitting] = useState(false);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [geoError, setGeoError] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const startCamera = useCallback(async () => {
     try {
@@ -107,6 +110,11 @@ export default function ReportProblemSheet({ objectName, objectId, onClose, onOb
     }
     if (submitting) return;
 
+    if (!isLoggedIn) {
+      toast.error("Avval tizimga kiring");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const result = await submitObservation(objectId, {
@@ -114,9 +122,9 @@ export default function ReportProblemSheet({ objectName, objectId, onClose, onOb
         text: comment.trim(),
         photo: capturedImage,
         userLocation,
+        userPhone: user?.phone,
+        userName: user?.name,
       });
-
-      toast.success(result.message, { description: `${objectName} — ${selectedCategory}` });
 
       if (onObservationAdded) {
         const obs: Observation = {
@@ -131,7 +139,8 @@ export default function ReportProblemSheet({ objectName, objectId, onClose, onOb
       }
 
       stream?.getTracks().forEach(t => t.stop());
-      onClose();
+      setSuccessMessage(result.message || "Muammo haqida xabar yuborildi");
+      setTimeout(() => { onClose(); }, 5000);
     } catch (err) {
       const obsErr = err as VerificationError;
       if (obsErr.error === 'Too far from object') {
@@ -272,6 +281,39 @@ export default function ReportProblemSheet({ objectName, objectId, onClose, onOb
         </button>
       </div>
       </motion.div>
+
+      {/* Success overlay */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[60] bg-foreground flex flex-col items-center justify-center px-8"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: 'spring', damping: 20 }}
+              className="flex flex-col items-center text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-success/20 flex items-center justify-center mb-5">
+                <CheckCircle2 className="w-8 h-8 text-success" />
+              </div>
+              <h2 className="text-xl font-bold text-background mb-2">{successMessage}</h2>
+              <p className="text-sm text-background/60 mb-6">{objectName} — {selectedCategory}</p>
+              <div className="w-48 h-1 bg-background/10 rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: '100%' }}
+                  animate={{ width: '0%' }}
+                  transition={{ duration: 5, ease: 'linear' }}
+                  className="h-full bg-success rounded-full"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

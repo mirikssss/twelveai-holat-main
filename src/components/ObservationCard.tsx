@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import type { Observation } from '@/data/infrastructure';
+import ObservationStatusBadge from './ObservationStatusBadge';
 
 interface Props {
   observation: Observation;
@@ -12,7 +13,10 @@ export default function ObservationCard({ observation }: Props) {
         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-background px-2 py-0.5 rounded-full">
           {observation.category}
         </span>
-        <span className="text-[10px] text-muted-foreground">{observation.time}</span>
+        <div className="flex items-center gap-2">
+          {observation.status && <ObservationStatusBadge status={observation.status} />}
+          <span className="text-[10px] text-muted-foreground">{observation.time}</span>
+        </div>
       </div>
 
       <p className="text-sm text-foreground font-medium mb-3 leading-relaxed">{observation.text}</p>

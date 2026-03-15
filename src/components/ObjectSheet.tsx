@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Droplets, Wifi, Hammer, Sun, ChevronDown, MessageSquare, ArrowUpDown, Filter, AlertCircle, Camera, Send } from 'lucide-react';
+import { X, MapPin, ChevronDown, AlertCircle } from 'lucide-react';
 import type { InfraObject, InfraPromise, Observation } from '@/data/infrastructure';
 import PromiseItem from './PromiseItem';
 import ObservationCard from './ObservationCard';
@@ -16,56 +16,78 @@ interface Props {
   onObjectUpdated?: (obj: InfraObject) => void;
 }
 
+type CategoryStatus = 'gray' | 'red' | 'green';
+
+function getCategoryStatus(observations: Observation[]): CategoryStatus {
+  if (observations.length === 0) return 'gray';
+  const withStatus = observations.filter(o => !!o.status);
+  if (withStatus.length === 0) return 'gray';
+  const unresolved = withStatus.filter(o => o.status !== 'resolved');
+  if (unresolved.length === 0) return 'green';
+  return 'red';
+}
+
+function getUnresolvedCount(observations: Observation[]): number {
+  return observations.filter(o => o.status && o.status !== 'resolved').length;
+}
+
+const statusColorMap: Record<CategoryStatus, { bg: string; text: string; border: string }> = {
+  gray: { bg: 'bg-secondary', text: 'text-muted-foreground', border: 'border-border' },
+  red: { bg: 'bg-destructive/10', text: 'text-destructive', border: 'border-destructive/20' },
+  green: { bg: 'bg-success/10', text: 'text-success', border: 'border-success/20' },
+};
+
 export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdated }: Props) {
-  const [tab, setTab] = useState<'overall' | 'observation'>('overall');
+  const [tab, setTab] = useState<'overall' | 'muammolar'>('overall');
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>(() => {
     const init: Record<number, boolean> = {};
     object.categories.forEach((_, i) => { init[i] = i === 0; });
     return init;
   });
-  const [obsFilter, setObsFilter] = useState<string>('all');
-  const [obsSortImportant, setObsSortImportant] = useState(true);
+  const [expandedProblemCats, setExpandedProblemCats] = useState<Record<string, boolean>>({});
   const [reportOpen, setReportOpen] = useState(false);
 
-  // When object changes (after detail load or switching object), expand first category only
   useEffect(() => {
     const cats = object.categories;
     if (cats.length === 0) return;
-    setExpandedCategories(
-      Object.fromEntries(cats.map((_, i) => [i, i === 0]))
-    );
+    setExpandedCategories(Object.fromEntries(cats.map((_, i) => [i, i === 0])));
   }, [object.id, object.categories.length]);
 
   const toggleCategory = (i: number) => {
     setExpandedCategories(prev => ({ ...prev, [i]: !prev[i] }));
   };
 
-  const obsCategories = useMemo(() => {
-    const cats = new Set(object.observations.map(o => o.category));
-    return Array.from(cats);
+  const toggleProblemCat = (key: string) => {
+    setExpandedProblemCats(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const observationsByCategory = useMemo(() => {
+    const map: Record<string, Observation[]> = {};
+    for (const obs of object.observations) {
+      const cat = obs.category;
+      if (!map[cat]) map[cat] = [];
+      map[cat].push(obs);
+    }
+    return map;
   }, [object.observations]);
 
-  const filteredObs = useMemo(() => {
-    let list = [...object.observations];
-    if (obsFilter !== 'all') list = list.filter(o => o.category === obsFilter);
-    if (obsSortImportant) list.sort((a, b) => b.priority - a.priority);
-    return list;
-  }, [object.observations, obsFilter, obsSortImportant]);
+  const problemCategories = useMemo(() => {
+    return Object.entries(observationsByCategory)
+      .map(([category, obs]) => ({
+        category,
+        observations: obs,
+        status: getCategoryStatus(obs),
+        unresolvedCount: getUnresolvedCount(obs),
+      }))
+      .filter(pc => pc.status !== 'gray');
+  }, [observationsByCategory]);
 
-  // Backend sends newest by date; fallback to highest priority when no detail yet
   const latestObservation =
     object.latestObservation ??
     (object.observations.length > 0
       ? object.observations.reduce((a, b) => (a.priority > b.priority ? a : b))
       : null);
-
-  const infoCards = [
-    { icon: Hammer, label: "Kapital ta'mir", value: object.capitalRepair || "—" },
-    { icon: Sun, label: "Svet", value: object.light ? "Bor" : "Yo'q", positive: object.light },
-    { icon: Droplets, label: "Suv", value: object.water ? "Bor" : "Yo'q", positive: object.water },
-    { icon: Wifi, label: "Internet", value: object.internet ? "Bor" : "Yo'q", positive: object.internet },
-  ];
 
   return (
     <>
@@ -75,16 +97,14 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
         exit={{ y: "100%" }}
         transition={SPRING}
         className="absolute inset-0 z-30 bg-background rounded-t-[28px] shadow-[0_-8px_30px_rgba(0,0,0,0.1)] flex flex-col overflow-hidden"
-        style={{ fontFamily: "'Wix Madefor Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}
       >
-        {/* Drag handle */}
         <div className="sticky top-0 bg-background z-10 pt-2 pb-1 px-6 rounded-t-[28px]">
           <div className="w-10 h-1 bg-border rounded-full mx-auto" />
         </div>
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
-          {/* Hero */}
           <div className="px-4">
+            {/* Hero */}
             <div className="relative rounded-2xl overflow-hidden mb-3">
               <img src={object.image} className="w-full h-44 object-cover" alt={object.name} />
               <button
@@ -101,21 +121,6 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
                 <MapPin className="w-3 h-3" /> {object.address}
               </p>
               <StatusBadge status={object.status} />
-            </div>
-
-            {/* Info cards */}
-            <div className="grid grid-cols-4 gap-2 mb-3">
-              {infoCards.map((card, i) => (
-                <div key={i} className="bg-secondary rounded-xl p-2.5 flex flex-col items-center text-center">
-                  <card.icon className="w-4 h-4 text-muted-foreground mb-1" />
-                  <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">{card.label}</p>
-                  <p className={`text-xs font-bold mt-0.5 ${
-                    'positive' in card
-                      ? card.positive ? "text-success" : "text-destructive"
-                      : "text-foreground"
-                  }`}>{card.value}</p>
-                </div>
-              ))}
             </div>
 
             {/* Collapsible summary */}
@@ -146,7 +151,7 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
             {latestObservation ? (
               <div
                 className="bg-destructive/5 border border-destructive/15 rounded-xl p-3 mb-4 cursor-pointer active:bg-destructive/10 transition-colors"
-                onClick={() => setTab('observation')}
+                onClick={() => setTab('muammolar')}
               >
                 <div className="flex items-center gap-1.5 mb-1">
                   <AlertCircle className="w-3.5 h-3.5 text-destructive" />
@@ -172,12 +177,12 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
                 Umumiy
               </button>
               <button
-                onClick={() => setTab('observation')}
+                onClick={() => setTab('muammolar')}
                 className={`flex-1 min-h-11 py-2.5 text-xs font-bold rounded-lg transition-all duration-200 relative active:scale-95 ${
-                  tab === 'observation' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                  tab === 'muammolar' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
                 }`}
               >
-                Xabarlar
+                Muammolar
                 {object.observations.length > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
                     {object.observations.length}
@@ -235,58 +240,73 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
                 </motion.div>
               ) : (
                 <motion.div
-                  key="observation"
+                  key="muammolar"
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {/* Filters */}
-                  <div className="flex gap-2 mb-4">
-                    <div className="flex items-center gap-1 flex-1">
-                      <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-                      <select
-                        value={obsFilter}
-                        onChange={e => setObsFilter(e.target.value)}
-                        style={{ fontFamily: 'inherit' }}
-                        className="bg-secondary text-foreground text-xs font-medium rounded-lg px-2 py-1.5 border-none outline-none flex-1 min-h-11"
-                      >
-                        <option value="all">Barchasi</option>
-                        {obsCategories.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      onClick={() => setObsSortImportant(!obsSortImportant)}
-                      className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg active:scale-95 transition-all min-h-11 ${
-                        obsSortImportant ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'
-                      }`}
-                    >
-                      <ArrowUpDown className="w-3.5 h-3.5" />
-                      Muhim
-                    </button>
-                  </div>
-
-                  {filteredObs.length === 0 ? (
+                  {/* Problem category cards as accordions */}
+                  {problemCategories.length === 0 ? (
                     <div className="text-center py-12">
-                      <MessageSquare className="w-10 h-10 text-muted-foreground/30 mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Bu ob'ekt bo'yicha yangi xabarlar yo'q</p>
+                      <p className="text-sm text-muted-foreground">Bu ob'ekt bo'yicha muammolar yo'q</p>
                     </div>
                   ) : (
-                    filteredObs.map(obs => (
-                      <ObservationCard key={obs.id} observation={obs} />
-                    ))
+                    <>
+                      <div className="grid grid-cols-4 gap-2 mb-4">
+                        {problemCategories.map((pc) => {
+                          const colors = statusColorMap[pc.status];
+                          const isOpen = expandedProblemCats[pc.category] || false;
+                          return (
+                            <button
+                              key={pc.category}
+                              onClick={() => toggleProblemCat(pc.category)}
+                              className={`${colors.bg} border ${colors.border} rounded-xl p-2.5 flex flex-col items-center text-center transition-all active:scale-95 ${isOpen ? 'ring-2 ring-primary/30' : ''}`}
+                            >
+                              <p className="text-[9px] font-extrabold uppercase tracking-wider text-foreground/70 leading-tight mb-1 line-clamp-2">{pc.category}</p>
+                              <p className={`text-xl font-black ${colors.text}`}>
+                                {pc.status === 'gray' ? '—' : pc.unresolvedCount}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Expanded observations under selected category */}
+                      <AnimatePresence>
+                        {problemCategories.map((pc) => {
+                          if (!expandedProblemCats[pc.category]) return null;
+                          return (
+                            <motion.div
+                              key={`expanded-${pc.category}`}
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="overflow-hidden mb-3"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{pc.category}</h3>
+                                <button onClick={() => toggleProblemCat(pc.category)} className="text-[10px] text-primary font-bold">Yopish</button>
+                              </div>
+                              {pc.observations.map(obs => (
+                                <ObservationCard key={obs.id} observation={obs} />
+                              ))}
+                            </motion.div>
+                          );
+                        })}
+                      </AnimatePresence>
+                    </>
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* CTA button - always after content, with safe bottom padding */}
+            {/* CTA button */}
             <div className="mt-auto pt-6 pb-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setReportOpen(true)}
-                className="w-full min-h-11 bg-primary text-primary-foreground py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-md"
+                className="w-full min-h-11 bg-primary text-white py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform"
               >
                 <AlertCircle className="w-4 h-4" />
                 Muammo haqida xabar berish
@@ -296,7 +316,6 @@ export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdate
         </div>
       </motion.div>
 
-      {/* Report problem sheet */}
       <AnimatePresence>
         {reportOpen && (
           <ReportProblemSheet

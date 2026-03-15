@@ -4,10 +4,8 @@ const { getObjectStatus } = require('../utils/objectStatusLabels');
 const { getPromiseStatus } = require('../utils/promiseStatusLabels');
 const { timeLabel } = require('../utils/timeLabel');
 
-/**
- * Build passport from base object (established, capitalRepair, water, internet).
- * water/internet as "Bor" | "Yo'q".
- */
+const PUBLIC_STATUSES = ['confirmed', 'in_resolution', 'resolved'];
+
 function buildPassport(base) {
   return {
     established: base.established != null ? base.established : null,
@@ -18,9 +16,6 @@ function buildPassport(base) {
   };
 }
 
-/**
- * Pick latest observation by createdAt; add timeLabel.
- */
 function buildLatestObservation(observations) {
   if (!Array.isArray(observations) || observations.length === 0) return null;
   const sorted = [...observations].sort(
@@ -38,25 +33,25 @@ function buildLatestObservation(observations) {
   };
 }
 
-/**
- * Map observations from details: add timeLabel.
- */
 function mapObservations(observations) {
   if (!Array.isArray(observations)) return [];
-  return observations.map((obs) => ({
-    id: obs.id,
-    category: obs.category,
-    text: obs.text,
-    createdAt: obs.createdAt,
-    timeLabel: timeLabel(obs.createdAt),
-    photos: Array.isArray(obs.photos) ? obs.photos : [],
-    priority: typeof obs.priority === 'number' ? obs.priority : 0,
-  }));
+  return observations
+    .filter((obs) => {
+      if (!obs.status) return true;
+      return PUBLIC_STATUSES.includes(obs.status);
+    })
+    .map((obs) => ({
+      id: obs.id,
+      category: obs.category,
+      text: obs.text,
+      createdAt: obs.createdAt,
+      timeLabel: timeLabel(obs.createdAt),
+      photos: Array.isArray(obs.photos) ? obs.photos : [],
+      priority: typeof obs.priority === 'number' ? obs.priority : 0,
+      status: obs.status || 'confirmed',
+    }));
 }
 
-/**
- * Map categories from details: add itemsCount, map promise statusCode to { code, label }.
- */
 function mapCategories(categories) {
   if (!Array.isArray(categories)) return [];
   return categories.map((cat) => ({
@@ -73,10 +68,6 @@ function mapCategories(categories) {
   }));
 }
 
-/**
- * Build full object detail DTO for GET /api/map/objects/:id (object page).
- * Returns null if base object not found (caller should 404).
- */
 function buildFullObjectDetail(id) {
   const base = getObjectById(id);
   if (!base) return null;
