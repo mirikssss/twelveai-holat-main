@@ -101,9 +101,9 @@ export default function MapView({ objects, activeId, flyTo, onPinClick, userLoca
 
     L.marker(userLocation, { icon: userIcon, interactive: false }).addTo(userLayerRef.current);
 
-    // Fly to user location immediately on first load
+    // Fly to user location immediately on first load (zoom 16 so objects don't clump)
     if (!initialFlyDone.current) {
-      mapRef.current.flyTo(userLocation, 14, { duration: 1.2 });
+      mapRef.current.flyTo(userLocation, 16, { duration: 1.2 });
       initialFlyDone.current = true;
     }
   }, [userLocation]);

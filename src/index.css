@@ -83,6 +83,14 @@
   background: transparent !important;
   border: none !important;
 }
+.leaflet-dashboard-preview.leaflet-container {
+  height: 100% !important;
+  min-height: 160px;
+}
+.leaflet-dashboard-preview .leaflet-pane,
+.leaflet-dashboard-preview .leaflet-tile-pane {
+  border-radius: 0 0 0.75rem 0.75rem;
+}
 
 @keyframes pulse-ring {
   0% { transform: scale(1); opacity: 0.3; }

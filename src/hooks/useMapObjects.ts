@@ -33,7 +33,7 @@ export function useMapObjects({
         status: statusFilter === 'all' ? undefined : statusFilter,
         lat: lat ?? undefined,
         lng: lng ?? undefined,
-        radius: 2000,
+        radius: 1000,
       }),
     staleTime: 60 * 1000,
   });

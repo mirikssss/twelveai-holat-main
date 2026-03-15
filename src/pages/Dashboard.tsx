@@ -15,6 +15,7 @@ import {
   type DashboardAttentionObject,
   type DashboardSignal,
 } from '@/api/mapApi';
+import DashboardMapPreview from '@/components/DashboardMapPreview';
 
 type PeriodFilter = '7d' | '30d' | 'all';
 type TypeFilter = 'all' | 'school' | 'hospital' | 'university' | 'road' | 'kindergarten' | 'sport';
@@ -422,7 +423,7 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* ── Mini-map ──────────────────────────────────────────── */}
+                {/* ── Mini-map (real Leaflet map with object coordinates) ─── */}
                 <div className="px-4 mb-4">
                   <div className="bg-card rounded-2xl border border-border overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3">
@@ -434,23 +435,13 @@ export default function Dashboard() {
                         Ochish <ChevronRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
-                    <div className="h-[160px] bg-secondary/40 relative overflow-hidden">
-                      {geo.map((o) => {
-                        const x = ((o.coords[1] - 69.15) / 0.25) * 100;
-                        const y = ((41.38 - o.coords[0]) / 0.13) * 100;
-                        return (
-                          <button
-                            key={o.id}
-                            onClick={() => navigate('/', { state: { openObject: o.id } })}
-                            className={`absolute w-3 h-3 rounded-full border-2 border-background transition-transform active:scale-110 ${statusBg(o.status)}`}
-                            style={{ left: `${Math.max(3, Math.min(97, x))}%`, top: `${Math.max(5, Math.min(92, y))}%` }}
-                            title={o.name}
-                          />
-                        );
-                      })}
-                      <p className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">Toshkent shahri</p>
-                      {/* Legend */}
-                      <div className="absolute bottom-2 left-3 flex gap-2.5">
+                    <div className="h-[160px] relative bg-muted">
+                      <DashboardMapPreview
+                        points={geo}
+                        onObjectClick={(id) => navigate('/', { state: { openObject: id } })}
+                      />
+                      <p className="absolute bottom-2 right-3 text-[10px] text-muted-foreground z-[1] pointer-events-none bg-background/70 px-1.5 py-0.5 rounded">Toshkent shahri</p>
+                      <div className="absolute bottom-2 left-3 flex gap-2.5 z-[1] pointer-events-none bg-background/70 px-2 py-1 rounded">
                         {[['bg-success', 'Yaxshi'], ['bg-warning', 'Tekshiruvda'], ['bg-destructive', 'Muammo']].map(([bg, lbl]) => (
                           <span key={lbl} className="flex items-center gap-1 text-[9px] text-muted-foreground">
                             <span className={`w-2 h-2 rounded-full ${bg}`} />{lbl}
