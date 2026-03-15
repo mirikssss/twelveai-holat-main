@@ -21,9 +21,11 @@ export function useMapObjects({
   error: Error | null;
 } {
   const [lat, lng] = userLocation ?? [null, null];
+  const stableLat = lat != null ? Math.round(lat * 1000) / 1000 : null;
+  const stableLng = lng != null ? Math.round(lng * 1000) / 1000 : null;
 
   const { data = [], isLoading, error } = useQuery({
-    queryKey: ['mapObjects', search, typeFilter, statusFilter, lat, lng],
+    queryKey: ['mapObjects', search, typeFilter, statusFilter, stableLat, stableLng],
     queryFn: () =>
       fetchMapObjects({
         q: search || undefined,

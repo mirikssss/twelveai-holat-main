@@ -68,10 +68,23 @@ export default function Index() {
       setUserLocation([41.2995, 69.2401]);
       return;
     }
+    let settled = false;
     const watchId = navigator.geolocation.watchPosition(
-      (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+      (pos) => {
+        const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        if (!settled) {
+          settled = true;
+          setUserLocation(next);
+          return;
+        }
+        setUserLocation((prev) => {
+          if (!prev) return next;
+          const d = Math.abs(prev[0] - next[0]) + Math.abs(prev[1] - next[1]);
+          return d > 0.0005 ? next : prev;
+        });
+      },
       () => setUserLocation((prev) => prev ?? [41.2995, 69.2401]),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
