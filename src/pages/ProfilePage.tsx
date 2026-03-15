@@ -143,11 +143,11 @@ export default function ProfilePage() {
             </div>
 
             {/* Filters — same design as map page */}
-            <div className="flex gap-2 mb-4">
+            <div className="flex gap-3 mb-4">
               <div className="relative flex-1">
                 <button
                   onClick={() => { setCategoryOpen(!categoryOpen); setStatusOpen(false); }}
-                  className="w-full flex items-center justify-between bg-background px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                  className="w-full flex items-center justify-between bg-background px-4 py-3 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
                 >
                   <span className="flex items-center gap-2 truncate">
                     <Tag className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -182,7 +182,7 @@ export default function ProfilePage() {
               <div className="relative flex-1">
                 <button
                   onClick={() => { setStatusOpen(!statusOpen); setCategoryOpen(false); }}
-                  className="w-full flex items-center justify-between bg-background px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                  className="w-full flex items-center justify-between bg-background px-4 py-3 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
                 >
                   <span className="flex items-center gap-2 truncate">
                     <currentStatusOption.icon className="w-4 h-4 shrink-0 text-muted-foreground" />

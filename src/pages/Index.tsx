@@ -143,15 +143,15 @@ export default function Index() {
         </div>
 
         {/* Top controls */}
-        <div className="absolute top-2 left-2 right-2 z-20 flex flex-col gap-1.5">
+        <div className="absolute top-2 left-2 right-2 z-20 flex flex-col gap-3">
           {/* Search + Hamburger row */}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {/* Hamburger 20% */}
             <div className="w-[20%] h-[48px]">
               <HamburgerMenu />
             </div>
             {/* Search 80% */}
-            <div className="flex-1 flex items-center bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-md border border-border/50">
+            <div className="flex-1 flex items-center bg-background/95 backdrop-blur-md px-4 py-3 rounded-2xl shadow-md border border-border/50">
               <Search className="w-4.5 h-4.5 text-muted-foreground mr-2.5 shrink-0" />
               <input
                 value={search}
@@ -163,12 +163,12 @@ export default function Index() {
           </div>
 
           {/* Filter buttons */}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             {/* Type filter */}
             <div className="relative flex-1">
               <button
                 onClick={() => { setTypeOpen(!typeOpen); setStatusOpen(false); }}
-                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-4 py-3 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
               >
                 <span className="flex items-center gap-2 truncate">
                   <currentType.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
@@ -204,7 +204,7 @@ export default function Index() {
             <div className="relative flex-1">
               <button
                 onClick={() => { setStatusOpen(!statusOpen); setTypeOpen(false); }}
-                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
+                className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-4 py-3 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
               >
                 <span className="flex items-center gap-2 truncate">
                   <currentStatus.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
