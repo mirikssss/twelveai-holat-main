@@ -1,21 +1,32 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { X, CheckCircle2, AlertCircle, Camera } from 'lucide-react';
+import { X, CheckCircle2, AlertCircle, Camera, Loader2 } from 'lucide-react';
 import type { InfraPromise } from '@/data/infrastructure';
+import { submitVerification, type VerificationError } from '@/api/mapApi';
 import { toast } from 'sonner';
 
 interface Props {
   promise: InfraPromise;
+  objectId: number;
   onClose: () => void;
+  onVerified?: (updatedPromise: {
+    id: string;
+    confirmedCount: number;
+    reportedCount: number;
+    statusLabel: string;
+  }) => void;
 }
 
-export default function CameraInspection({ promise, onClose }: Props) {
+export default function CameraInspection({ promise, objectId, onClose, onVerified }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState(false);
 
   const startCamera = useCallback(async () => {
     try {
@@ -40,6 +51,14 @@ export default function CameraInspection({ promise, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setGeoError(true),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
   const takePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -54,14 +73,53 @@ export default function CameraInspection({ promise, onClose }: Props) {
     setCapturedImage(null);
   };
 
-  const submit = (verdict: 'works' | 'broken') => {
-    if (verdict === 'works') {
-      toast.success('Ishlaydi deb belgilandi', { description: promise.title });
-    } else {
-      toast.error('Muammo bildirildi', { description: promise.title });
+  const doSubmit = async (verdict: 'confirmed' | 'issue') => {
+    if (!capturedImage) {
+      toast.error("Avval suratga oling");
+      return;
     }
-    stream?.getTracks().forEach(t => t.stop());
-    onClose();
+    if (!userLocation) {
+      toast.error("Geolokatsiya aniqlanmadi. Ruxsat berib qayta urinib ko'ring.");
+      return;
+    }
+    if (submitting) return;
+
+    setSubmitting(true);
+    try {
+      const result = await submitVerification(objectId, {
+        programItemId: promise.id,
+        verdict,
+        comment: comment.trim() || undefined,
+        photo: capturedImage,
+        userLocation,
+      });
+
+      toast.success(result.message, { description: promise.title });
+
+      if (onVerified) {
+        onVerified({
+          id: result.updatedPromiseItem.id,
+          confirmedCount: result.updatedPromiseItem.confirmedCount,
+          reportedCount: result.updatedPromiseItem.reportedCount,
+          statusLabel: result.updatedPromiseItem.status.label,
+        });
+      }
+
+      stream?.getTracks().forEach(t => t.stop());
+      onClose();
+    } catch (err) {
+      const verErr = err as VerificationError;
+      if (verErr.error === 'Too far from object') {
+        toast.error(
+          `Siz obyektdan ${verErr.distanceToObjectMeters} m uzoqdasiz`,
+          { description: verErr.message }
+        );
+      } else {
+        toast.error(verErr.message || verErr.error || "Xatolik yuz berdi");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -87,6 +145,13 @@ export default function CameraInspection({ promise, onClose }: Props) {
           <X className="w-5 h-5 text-background" />
         </button>
       </div>
+
+      {/* Geo warning */}
+      {geoError && (
+        <div className="mx-5 mb-2 px-3 py-2 bg-destructive/20 border border-destructive/30 rounded-xl">
+          <p className="text-xs text-destructive font-medium">Geolokatsiya aniqlanmadi. Brauzer sozlamalaridan ruxsat bering.</p>
+        </div>
+      )}
 
       {/* Viewfinder */}
       <div className="flex-1 relative mx-4 rounded-3xl overflow-hidden bg-foreground/80 flex items-center justify-center border border-background/10">
@@ -122,21 +187,30 @@ export default function CameraInspection({ promise, onClose }: Props) {
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Actions — site semantic colors (same as StatusBadge, PromiseItem) */}
+      {/* Actions */}
       <div className="p-5 pb-8">
+        {!capturedImage && (
+          <p className="text-xs text-background/50 text-center mb-3 font-medium">Avval suratga oling, keyin baholang</p>
+        )}
         <div className="flex gap-3 mb-4">
           <button
-            className="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold bg-[hsl(var(--success))] text-white hover:opacity-90"
-            onClick={() => submit('works')}
+            className={`flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-transform font-bold bg-[hsl(var(--success))] text-white ${
+              capturedImage && !submitting ? 'active:scale-95 hover:opacity-90' : 'opacity-40 cursor-not-allowed'
+            }`}
+            disabled={!capturedImage || submitting}
+            onClick={() => doSubmit('confirmed')}
           >
-            <CheckCircle2 className="w-6 h-6" />
+            {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <CheckCircle2 className="w-6 h-6" />}
             <span className="text-sm">Ishlaydi ✓</span>
           </button>
           <button
-            className="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold bg-[hsl(var(--destructive))] text-white hover:opacity-90"
-            onClick={() => submit('broken')}
+            className={`flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-transform font-bold bg-[hsl(var(--destructive))] text-white ${
+              capturedImage && !submitting ? 'active:scale-95 hover:opacity-90' : 'opacity-40 cursor-not-allowed'
+            }`}
+            disabled={!capturedImage || submitting}
+            onClick={() => doSubmit('issue')}
           >
-            <AlertCircle className="w-6 h-6" />
+            {submitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <AlertCircle className="w-6 h-6" />}
             <span className="text-sm">Buzilgan ✗</span>
           </button>
         </div>

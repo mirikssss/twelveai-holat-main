@@ -8,7 +8,7 @@ import CameraInspection from '@/components/CameraInspection';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { useMapObjects } from '@/hooks/useMapObjects';
 import { fetchObjectDetail, detailResponseToInfraObject } from '@/api/mapApi';
-import { type InfraObject, type InfraPromise, type ObjectType } from '@/data/infrastructure';
+import { type InfraObject, type InfraPromise, type Observation, type ObjectType } from '@/data/infrastructure';
 
 type StatusFilter = 'all' | 'good' | 'mixed' | 'bad';
 type TypeFilter = 'all' | ObjectType;
@@ -59,6 +59,7 @@ export default function Index() {
   const [typeOpen, setTypeOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -74,13 +75,19 @@ export default function Index() {
     );
   }, []);
 
-  // Load full object detail (categories, observations) when sheet opens
+  // Load full object detail (categories, observations) when sheet opens.
+  // Only apply response if still viewing the same object (avoid stale data when switching quickly).
   useEffect(() => {
     if (!selectedObject?.id) return;
-    fetchObjectDetail(selectedObject.id)
-      .then((d) => setSelectedObject(detailResponseToInfraObject(d)))
-      .catch(() => {});
-  }, [selectedObject?.id]);
+    const id = selectedObject.id;
+    fetchObjectDetail(id)
+      .then((d) => {
+        setSelectedObject((prev) =>
+          prev?.id === id ? detailResponseToInfraObject(d) : prev
+        );
+      })
+      .catch((err) => console.error('[ObjectDetail] Failed to load detail for id', id, err));
+  }, [selectedObject?.id, detailRefreshKey]);
 
   const { objects: filtered, isLoading, error } = useMapObjects({
     search,
@@ -275,16 +282,33 @@ export default function Index() {
               object={selectedObject}
               onClose={() => setSelectedObject(null)}
               onInspect={setInspectingPromise}
+              onObjectUpdated={(updated) => setSelectedObject(updated)}
             />
           )}
         </AnimatePresence>
 
         {/* Camera inspection */}
         <AnimatePresence>
-          {inspectingPromise && (
+          {inspectingPromise && selectedObject && (
             <CameraInspection
               promise={inspectingPromise}
+              objectId={selectedObject.id}
               onClose={() => setInspectingPromise(null)}
+              onVerified={(data) => {
+                setSelectedObject((prev) => {
+                  if (!prev) return prev;
+                  const newCategories = prev.categories.map((cat) => ({
+                    ...cat,
+                    promises: cat.promises.map((p) =>
+                      p.id === data.id
+                        ? { ...p, confirmed: data.confirmedCount, reported: data.reportedCount, status: data.statusLabel }
+                        : p
+                    ),
+                  }));
+                  return { ...prev, categories: newCategories };
+                });
+                setDetailRefreshKey((k) => k + 1);
+              }}
             />
           )}
         </AnimatePresence>

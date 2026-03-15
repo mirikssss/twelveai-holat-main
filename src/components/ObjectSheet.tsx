@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Droplets, Wifi, Hammer, Sun, ChevronDown, MessageSquare, ArrowUpDown, Filter, AlertCircle, Camera, Send } from 'lucide-react';
-import type { InfraObject, InfraPromise } from '@/data/infrastructure';
+import type { InfraObject, InfraPromise, Observation } from '@/data/infrastructure';
 import PromiseItem from './PromiseItem';
 import ObservationCard from './ObservationCard';
 import StatusBadge from './StatusBadge';
@@ -13,9 +13,10 @@ interface Props {
   object: InfraObject;
   onClose: () => void;
   onInspect: (p: InfraPromise) => void;
+  onObjectUpdated?: (obj: InfraObject) => void;
 }
 
-export default function ObjectSheet({ object, onClose, onInspect }: Props) {
+export default function ObjectSheet({ object, onClose, onInspect, onObjectUpdated }: Props) {
   const [tab, setTab] = useState<'overall' | 'observation'>('overall');
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<number, boolean>>(() => {
@@ -26,6 +27,15 @@ export default function ObjectSheet({ object, onClose, onInspect }: Props) {
   const [obsFilter, setObsFilter] = useState<string>('all');
   const [obsSortImportant, setObsSortImportant] = useState(true);
   const [reportOpen, setReportOpen] = useState(false);
+
+  // When object changes (after detail load or switching object), expand first category only
+  useEffect(() => {
+    const cats = object.categories;
+    if (cats.length === 0) return;
+    setExpandedCategories(
+      Object.fromEntries(cats.map((_, i) => [i, i === 0]))
+    );
+  }, [object.id, object.categories.length]);
 
   const toggleCategory = (i: number) => {
     setExpandedCategories(prev => ({ ...prev, [i]: !prev[i] }));
@@ -43,9 +53,12 @@ export default function ObjectSheet({ object, onClose, onInspect }: Props) {
     return list;
   }, [object.observations, obsFilter, obsSortImportant]);
 
-  const latestObservation = object.observations.length > 0
-    ? object.observations.reduce((a, b) => a.priority > b.priority ? a : b)
-    : null;
+  // Backend sends newest by date; fallback to highest priority when no detail yet
+  const latestObservation =
+    object.latestObservation ??
+    (object.observations.length > 0
+      ? object.observations.reduce((a, b) => (a.priority > b.priority ? a : b))
+      : null);
 
   const infoCards = [
     { icon: Hammer, label: "Kapital ta'mir", value: object.capitalRepair || "—" },
@@ -288,7 +301,18 @@ export default function ObjectSheet({ object, onClose, onInspect }: Props) {
         {reportOpen && (
           <ReportProblemSheet
             objectName={object.name}
+            objectId={object.id}
             onClose={() => setReportOpen(false)}
+            onObservationAdded={(obs: Observation) => {
+              if (onObjectUpdated) {
+                const newObs = [obs, ...object.observations];
+                onObjectUpdated({
+                  ...object,
+                  observations: newObs,
+                  latestObservation: obs,
+                });
+              }
+            }}
           />
         )}
       </AnimatePresence>

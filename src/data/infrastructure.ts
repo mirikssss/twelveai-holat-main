@@ -45,6 +45,8 @@ export interface InfraObject {
   observations: Observation[];
   /** Set by map API when requested with lat/lng (meters from user). */
   distanceMeters?: number;
+  /** Latest observation by date (from object detail API); used for "So'nggi muammo" block. */
+  latestObservation?: Observation | null;
 }
 
 export const INFRASTRUCTURE_OBJECTS: InfraObject[] = [

@@ -8,8 +8,8 @@
           {
             "id": "promise-1-1",
             "title": "Yangi sovun dispenserlari",
-            "statusCode": "mixed",
-            "confirmedCount": 45,
+            "statusCode": "confirmed",
+            "confirmedCount": 46,
             "reportedCount": 38
           },
           {
@@ -37,6 +37,16 @@
     ],
     "observations": [
       {
+        "id": "obs-mmraqk45-2ipdze",
+        "category": "Suv",
+        "text": "Suv oqmayapti 3-qavatda",
+        "createdAt": "2026-03-15T05:10:43.539Z",
+        "photos": [
+          "data:image/jpeg;base64,test123"
+        ],
+        "priority": 2
+      },
+      {
         "id": "obs-1-1",
         "category": "Navbat / Xizmat sifati",
         "text": "Navbat juda uzoq, 3 soatdan ko'p kutdim.",
@@ -49,7 +59,9 @@
         "category": "Sanitariya",
         "text": "2-qavat hojatxonasida suv oqmayapti.",
         "createdAt": "2026-03-14T14:30:00.000Z",
-        "photos": ["/medical/sample-1.jpg"],
+        "photos": [
+          "/medical/sample-1.jpg"
+        ],
         "priority": 2
       }
     ]
@@ -64,15 +76,15 @@
             "id": "promise-2-1",
             "title": "Zamonaviy kompyuterlar",
             "statusCode": "confirmed",
-            "confirmedCount": 95,
-            "reportedCount": 3
+            "confirmedCount": 98,
+            "reportedCount": 4
           },
           {
             "id": "promise-2-2",
             "title": "Internet tezligi",
-            "statusCode": "mixed",
-            "confirmedCount": 40,
-            "reportedCount": 25
+            "statusCode": "confirmed",
+            "confirmedCount": 41,
+            "reportedCount": 26
           }
         ]
       }

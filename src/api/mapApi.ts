@@ -142,6 +142,101 @@ export async function fetchObjectDetail(id: number): Promise<ObjectDetailRespons
   return res.json();
 }
 
+// ---- Verification submit ----
+
+export interface SubmitVerificationBody {
+  programItemId: string;
+  verdict: 'confirmed' | 'issue';
+  comment?: string;
+  photo: string;
+  userLocation: { lat: number; lng: number };
+}
+
+export interface SubmitVerificationResponse {
+  success: boolean;
+  message: string;
+  verification: {
+    id: string;
+    objectId: number;
+    programItemId: string;
+    verdict: string;
+    geoVerified: boolean;
+    distanceToObjectMeters: number;
+    createdAt: string;
+  };
+  updatedPromiseItem: {
+    id: string;
+    title: string;
+    status: { code: string; label: string };
+    confirmedCount: number;
+    reportedCount: number;
+  };
+  updatedObjectStatus: { code: string; label: string };
+}
+
+export interface VerificationError {
+  error: string;
+  message?: string;
+  distanceToObjectMeters?: number;
+}
+
+export async function submitVerification(
+  objectId: number,
+  body: SubmitVerificationBody
+): Promise<SubmitVerificationResponse> {
+  const res = await fetch(`${BASE}/api/objects/${objectId}/verifications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err: VerificationError = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw err;
+  }
+  return res.json();
+}
+
+// ---- Observation submit ----
+
+export interface SubmitObservationBody {
+  category: string;
+  text: string;
+  photo: string;
+  userLocation: { lat: number; lng: number };
+}
+
+export interface SubmitObservationResponse {
+  success: boolean;
+  message: string;
+  observation: {
+    id: string;
+    category: string;
+    text: string;
+    createdAt: string;
+    timeLabel: string;
+    photos: string[];
+    priority: number;
+  };
+  objectId: number;
+  newObservationsCount: number;
+}
+
+export async function submitObservation(
+  objectId: number,
+  body: SubmitObservationBody
+): Promise<SubmitObservationResponse> {
+  const res = await fetch(`${BASE}/api/objects/${objectId}/observations`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err: VerificationError = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw err;
+  }
+  return res.json();
+}
+
 /** Map objectStatus.code to frontend PromiseStatus. */
 function detailStatusToPromiseStatus(code: string): PromiseStatus {
   if (code === 'confirmed') return 'good';
@@ -191,5 +286,20 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
       photos: obs.photos ?? [],
       priority: obs.priority ?? 0,
     })),
+    latestObservation:
+      d.latestObservation && typeof d.latestObservation === 'object'
+        ? {
+            id: (d.latestObservation as { id?: string }).id ?? '',
+            category: (d.latestObservation as { category?: string }).category ?? '',
+            text: (d.latestObservation as { text?: string }).text ?? '',
+            time: (d.latestObservation as { timeLabel?: string }).timeLabel ?? '',
+            photos: Array.isArray((d.latestObservation as { photos?: string[] }).photos)
+              ? (d.latestObservation as { photos: string[] }).photos
+              : [],
+            priority: typeof (d.latestObservation as { priority?: number }).priority === 'number'
+              ? (d.latestObservation as { priority: number }).priority
+              : 0,
+          }
+        : null,
   };
 }

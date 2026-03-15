@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { X, Camera, Send, Droplets, Zap, Wifi, ShieldAlert, Wrench, HelpCircle, Users, Stethoscope } from 'lucide-react';
+import { X, Camera, Send, Droplets, Zap, Wifi, ShieldAlert, Wrench, HelpCircle, Users, Stethoscope, Loader2 } from 'lucide-react';
+import { submitObservation, type VerificationError } from '@/api/mapApi';
+import type { Observation } from '@/data/infrastructure';
 import { toast } from 'sonner';
 
 const CATEGORIES = [
@@ -16,10 +18,12 @@ const CATEGORIES = [
 
 interface Props {
   objectName: string;
+  objectId: number;
   onClose: () => void;
+  onObservationAdded?: (obs: Observation) => void;
 }
 
-export default function ReportProblemSheet({ objectName, onClose }: Props) {
+export default function ReportProblemSheet({ objectName, objectId, onClose, onObservationAdded }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -27,6 +31,9 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoError, setGeoError] = useState(false);
 
   const startCamera = useCallback(async () => {
     try {
@@ -51,6 +58,14 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setGeoError(true),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+
   const takePhoto = () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
@@ -68,10 +83,12 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
   const canSubmit = Boolean(
     selectedCategory &&
     capturedImage &&
-    comment.trim().length > 0
+    comment.trim().length > 0 &&
+    userLocation &&
+    !submitting
   );
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedCategory) {
       toast.error("Kategoriyani tanlang");
       return;
@@ -84,9 +101,50 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
       toast.error("Muammo haqida batafsil yozing");
       return;
     }
-    toast.success("Xabar yuborildi!", { description: `${objectName} — ${selectedCategory}` });
-    stream?.getTracks().forEach(t => t.stop());
-    onClose();
+    if (!userLocation) {
+      toast.error("Geolokatsiya aniqlanmadi");
+      return;
+    }
+    if (submitting) return;
+
+    setSubmitting(true);
+    try {
+      const result = await submitObservation(objectId, {
+        category: selectedCategory,
+        text: comment.trim(),
+        photo: capturedImage,
+        userLocation,
+      });
+
+      toast.success(result.message, { description: `${objectName} — ${selectedCategory}` });
+
+      if (onObservationAdded) {
+        const obs: Observation = {
+          id: result.observation.id,
+          category: result.observation.category,
+          text: result.observation.text,
+          time: result.observation.timeLabel,
+          photos: result.observation.photos,
+          priority: result.observation.priority,
+        };
+        onObservationAdded(obs);
+      }
+
+      stream?.getTracks().forEach(t => t.stop());
+      onClose();
+    } catch (err) {
+      const obsErr = err as VerificationError;
+      if (obsErr.error === 'Too far from object') {
+        toast.error(
+          `Siz obyektdan ${obsErr.distanceToObjectMeters} m uzoqdasiz`,
+          { description: obsErr.message }
+        );
+      } else {
+        toast.error(obsErr.message || obsErr.error || "Xatolik yuz berdi");
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -102,14 +160,14 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
       transition={{ duration: 0.2 }}
       className="absolute inset-0 z-50"
     >
-      {/* Backdrop — клик вне формы закрывает */}
+      {/* Backdrop */}
       <button
         type="button"
         aria-label="Yopish"
         onClick={handleClose}
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
       />
-      {/* Форма снизу — клик по ней не закрывает */}
+      {/* Form */}
       <motion.div
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
@@ -129,7 +187,14 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
         </button>
       </div>
 
-      {/* Category — compact row */}
+      {/* Geo warning */}
+      {geoError && (
+        <div className="mx-4 mb-2 px-3 py-2 bg-destructive/20 border border-destructive/30 rounded-xl">
+          <p className="text-xs text-destructive font-medium">Geolokatsiya aniqlanmadi. Brauzer sozlamalaridan ruxsat bering.</p>
+        </div>
+      )}
+
+      {/* Category */}
       <div className="px-4 pb-3 shrink-0">
         <p className="text-[10px] font-bold uppercase tracking-wider text-background/70 mb-2">Kategoriyani tanlang</p>
         <div className="flex flex-wrap gap-1.5">
@@ -150,7 +215,7 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
         </div>
       </div>
 
-      {/* Viewfinder — camera open immediately */}
+      {/* Viewfinder */}
       <div className="flex-1 relative mx-4 rounded-2xl overflow-hidden bg-foreground/80 flex items-center justify-center border border-background/10 min-h-[200px]">
         {!capturedImage ? (
           <>
@@ -184,7 +249,7 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Comment + Submit — same style as CameraInspection bottom */}
+      {/* Comment + Submit */}
       <div className="p-4 pb-8 shrink-0">
         <textarea
           value={comment}
@@ -202,7 +267,7 @@ export default function ReportProblemSheet({ objectName, onClose }: Props) {
               : 'bg-background/20 text-background/50 cursor-not-allowed'
           }`}
         >
-          <Send className="w-4 h-4" />
+          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
           Yuborish
         </button>
       </div>

@@ -1,10 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { enrichObjects } = require('./enrichmentService');
+const { resolveReadPath, resolveWritePath } = require('../utils/dataPath');
 
 const ENRICHED_PATH = path.resolve(__dirname, '..', '..', 'data', 'enriched-objects.json');
-const GENERATED_DIR = path.resolve(__dirname, '..', '..', 'data', 'generated');
-const GENERATED_PATH = path.join(GENERATED_DIR, 'map-objects.json');
 
 /**
  * Load raw objects from enriched-objects.json.
@@ -30,10 +29,10 @@ function buildMapObjects() {
  */
 function buildAndWriteGenerated() {
   const objects = buildMapObjects();
-  if (!fs.existsSync(GENERATED_DIR)) {
-    fs.mkdirSync(GENERATED_DIR, { recursive: true });
-  }
-  fs.writeFileSync(GENERATED_PATH, JSON.stringify(objects, null, 2), 'utf8');
+  const outPath = resolveWritePath('generated/map-objects.json');
+  const outDir = path.dirname(outPath);
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(objects, null, 2), 'utf8');
   return objects;
 }
 
@@ -42,9 +41,10 @@ function buildAndWriteGenerated() {
  * Returns null if file missing or invalid.
  */
 function readGeneratedIfExists() {
-  if (!fs.existsSync(GENERATED_PATH)) return null;
+  const p = resolveReadPath('generated/map-objects.json');
+  if (!fs.existsSync(p)) return null;
   try {
-    const raw = fs.readFileSync(GENERATED_PATH, 'utf8');
+    const raw = fs.readFileSync(p, 'utf8');
     const data = JSON.parse(raw);
     return Array.isArray(data) && data.length > 0 ? data : null;
   } catch {
@@ -60,6 +60,8 @@ function getOrBuildMapObjects() {
   if (cached) return cached;
   return buildAndWriteGenerated();
 }
+
+const GENERATED_PATH = path.resolve(__dirname, '..', '..', 'data', 'generated', 'map-objects.json');
 
 if (require.main === module) {
   const objects = buildAndWriteGenerated();

@@ -83,7 +83,10 @@ function buildFullObjectDetail(id) {
 
   const details = getDetailsByObjectId(id);
   const categories = details ? mapCategories(details.categories) : [];
-  const observations = details ? mapObservations(details.observations) : [];
+  let observations = details ? mapObservations(details.observations) : [];
+  observations = [...observations].sort(
+    (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+  );
 
   const [lat, lng] = Array.isArray(base.coords) && base.coords.length >= 2
     ? base.coords
