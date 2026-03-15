@@ -238,5 +238,53 @@
     "promiseCount": 5,
     "categories": [],
     "observations": []
+  },
+  {
+    "id": 11,
+    "externalId": null,
+    "name": "Мактаб №117",
+    "type": "school",
+    "coords": [
+      41.3378,
+      69.3342
+    ],
+    "image": "/schools/Школа №60.jpg",
+    "district": "Мирзо-Улугбекский",
+    "address": "ул. Зиёлилар, 15",
+    "status": "unverified",
+    "summary": "Fuqarolar tekshiruvi hali yetarli emas.",
+    "established": 2009,
+    "capitalRepair": "2024",
+    "light": true,
+    "water": false,
+    "internet": true,
+    "totalInspections": 16,
+    "promiseCount": 6,
+    "categories": [],
+    "observations": []
+  },
+  {
+    "id": 12,
+    "externalId": null,
+    "name": "Мактаб №256",
+    "type": "school",
+    "coords": [
+      41.3392,
+      69.3368
+    ],
+    "image": "/schools/Школа №94.jpg",
+    "district": "Мирзо-Улугбекский",
+    "address": "ул. Дурмон йули, 28",
+    "status": "unverified",
+    "summary": "Obyekt bo'yicha ayrim muammolar qayd etilgan.",
+    "established": 2000,
+    "capitalRepair": null,
+    "light": false,
+    "water": true,
+    "internet": false,
+    "totalInspections": 23,
+    "promiseCount": 7,
+    "categories": [],
+    "observations": []
   }
 ]

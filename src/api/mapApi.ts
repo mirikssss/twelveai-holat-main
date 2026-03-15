@@ -342,3 +342,92 @@ export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObjec
         : null,
   };
 }
+
+// ─── Dashboard API ─────────────────────────────────────────────────────────────
+
+export interface DashboardSummary {
+  totalObjects: number;
+  confirmedObjects: number;
+  attentionObjects: number;
+  checkingObjects: number;
+  newObservationsCount: number;
+  verificationsCount: number;
+}
+
+export interface DashboardAttentionObject {
+  id: number;
+  name: string;
+  type: string;
+  district: string | null;
+  address: string | null;
+  image: string;
+  status: string;
+  objectStatus: { code: string; label: string };
+  observationCount: number;
+  problematicPromises: number;
+  latestSignalAt: string | null;
+}
+
+export interface DashboardProblemCategory {
+  categoryLabel: string;
+  issueCount: number;
+  affectedObjectsCount: number;
+}
+
+export interface DashboardSignal {
+  id: string;
+  objectId: number;
+  objectName: string;
+  district: string | null;
+  category: string;
+  text: string;
+  status: string;
+  createdAt: string;
+  timeLabel: string;
+}
+
+export interface DashboardGeoPoint {
+  id: number;
+  name: string;
+  coords: [number, number];
+  status: string;
+  type: string;
+}
+
+export interface DashboardDistrictRow {
+  district: string;
+  total: number;
+  attention: number;
+  checking: number;
+  confirmed: number;
+}
+
+export interface DashboardResponse {
+  summary: DashboardSummary;
+  topAttentionObjects: DashboardAttentionObject[];
+  problemCategories: DashboardProblemCategory[];
+  latestSignals: DashboardSignal[];
+  objectsWithoutVerifications: DashboardAttentionObject[];
+  geoSummary: DashboardGeoPoint[];
+  districtSummary: DashboardDistrictRow[];
+  filters: { type: string; period: string };
+}
+
+export interface DashboardParams {
+  type?: string;
+  period?: string;
+}
+
+export async function fetchDashboard(params: DashboardParams = {}): Promise<DashboardResponse> {
+  const search = new URLSearchParams();
+  if (params.type && params.type !== 'all') search.set('type', params.type);
+  if (params.period && params.period !== 'all') search.set('period', params.period);
+  const url = `${BASE}/api/dashboard${search.toString() ? `?${search}` : ''}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Dashboard API error: ${res.status}`);
+  const data: DashboardResponse = await res.json();
+  // Fix image asset URLs
+  data.topAttentionObjects = data.topAttentionObjects.map((o) => ({ ...o, image: assetUrl(o.image) }));
+  data.objectsWithoutVerifications = data.objectsWithoutVerifications.map((o) => ({ ...o, image: assetUrl(o.image) }));
+  return data;
+}

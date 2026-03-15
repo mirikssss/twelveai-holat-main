@@ -1,26 +1,32 @@
-import { useState, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useQuery } from '@tanstack/react-query';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Building, AlertTriangle, Clock, MessageSquare, RefreshCw,
-  ChevronDown, MapPin, School, Heart, Baby, Trophy, GraduationCap, Construction,
-  CheckCircle2, XCircle, TrendingUp, Eye, ChevronRight, ShieldAlert,
-  ArrowLeft
+  Building, AlertTriangle, MessageSquare, RefreshCw,
+  School, Heart, GraduationCap, CheckCircle2, XCircle,
+  TrendingUp, Eye, ChevronRight, ShieldAlert, MapPin,
+  Clock, Loader2, ArrowLeft, BarChart3, Zap, Construction, Baby, Trophy,
 } from 'lucide-react';
-import { INFRASTRUCTURE_OBJECTS, type InfraObject, type ObjectType } from '@/data/infrastructure';
+import {
+  fetchDashboard,
+  typeForApi,
+  type DashboardResponse,
+  type DashboardAttentionObject,
+  type DashboardSignal,
+} from '@/api/mapApi';
 
 type PeriodFilter = '7d' | '30d' | 'all';
-type TypeFilter = 'all' | ObjectType;
-type StatusFilter = 'all' | 'good' | 'mixed' | 'bad';
+type TypeFilter = 'all' | 'school' | 'hospital' | 'university' | 'road' | 'kindergarten' | 'sport';
 
 const TYPE_OPTIONS: { key: TypeFilter; label: string; icon: typeof School }[] = [
   { key: 'all', label: 'Barchasi', icon: Building },
   { key: 'school', label: 'Maktablar', icon: School },
-  { key: 'hospital', label: 'Shifoxonalar', icon: Heart },
-  { key: 'kindergarten', label: "Bog'chalar", icon: Baby },
+  { key: 'hospital', label: 'Shifo', icon: Heart },
+  { key: 'kindergarten', label: "Bog'cha", icon: Baby },
   { key: 'sport', label: 'Sport', icon: Trophy },
-  { key: 'university', label: 'Universitetlar', icon: GraduationCap },
-  { key: 'road', label: "Yo'llar", icon: Construction },
+  { key: 'university', label: 'OTM', icon: GraduationCap },
+  { key: 'road', label: "Yo'l", icon: Construction },
 ];
 
 const PERIOD_OPTIONS: { key: PeriodFilter; label: string }[] = [
@@ -29,102 +35,75 @@ const PERIOD_OPTIONS: { key: PeriodFilter; label: string }[] = [
   { key: 'all', label: 'Barchasi' },
 ];
 
-const cardVariant = {
-  hidden: { opacity: 0, y: 12 },
-  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, duration: 0.3 } }),
+const fadeUp = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (i: number) => ({ opacity: 1, y: 0, transition: { delay: i * 0.06, duration: 0.32 } }),
 };
 
+function statusColor(status: string) {
+  if (status === 'good') return 'text-success';
+  if (status === 'bad') return 'text-destructive';
+  if (status === 'mixed') return 'text-warning';
+  return 'text-muted-foreground';
+}
+function statusBg(status: string) {
+  if (status === 'good') return 'bg-success';
+  if (status === 'bad') return 'bg-destructive';
+  if (status === 'mixed') return 'bg-warning';
+  return 'bg-muted-foreground';
+}
+function statusLabel(status: string) {
+  if (status === 'good') return 'Tasdiqlangan';
+  if (status === 'bad') return 'Muammoli';
+  if (status === 'mixed') return 'Tekshiruvda';
+  return 'Noma\'lum';
+}
+
+function typeLabel(type: string) {
+  if (type === 'school') return 'Maktab';
+  if (type === 'medical') return 'Shifo';
+  if (type === 'university') return 'OTM';
+  return type;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [period, setPeriod] = useState<PeriodFilter>('7d');
-  const [statusFilter] = useState<StatusFilter>('all');
-  const [refreshing, setRefreshing] = useState(false);
 
-  const filtered = useMemo(() => {
-    return INFRASTRUCTURE_OBJECTS.filter((o) => {
-      const matchType = typeFilter === 'all' || o.type === typeFilter;
-      const matchStatus = statusFilter === 'all' || o.status === statusFilter;
-      return matchType && matchStatus;
-    });
-  }, [typeFilter, statusFilter]);
+  const apiType = typeFilter === 'hospital' ? 'medical' : typeFilter === 'all' ? 'all' : typeForApi(typeFilter);
 
-  // KPI calculations
-  const totalObjects = filtered.length;
-  const attentionObjects = filtered.filter(o => o.status === 'bad').length;
-  const checkingObjects = filtered.filter(o => o.status === 'mixed').length;
-  const totalObservations = filtered.reduce((sum, o) => sum + o.observations.length, 0);
-  const totalVerifications = filtered.reduce((sum, o) => sum + o.totalInspections, 0);
+  const {
+    data,
+    isLoading,
+    error,
+    refetch,
+    isFetching,
+  } = useQuery<DashboardResponse>({
+    queryKey: ['dashboard', apiType, period],
+    queryFn: () => fetchDashboard({ type: apiType, period }),
+    staleTime: 30_000,
+  });
 
-  // Top problematic objects (sorted by observations + bad status)
-  const topProblematic = useMemo(() => {
-    return [...filtered]
-      .filter(o => o.status === 'bad' || o.status === 'mixed')
-      .sort((a, b) => {
-        const scoreA = a.observations.length * 2 + (a.status === 'bad' ? 10 : 0);
-        const scoreB = b.observations.length * 2 + (b.status === 'bad' ? 10 : 0);
-        return scoreB - scoreA;
-      })
-      .slice(0, 5);
-  }, [filtered]);
+  const handleRefresh = useCallback(() => { refetch(); }, [refetch]);
 
-  // Problem categories
-  const problemCategories = useMemo(() => {
-    const catMap = new Map<string, { issues: number; objects: Set<number> }>();
-    filtered.forEach(obj => {
-      obj.categories.forEach(cat => {
-        const issues = cat.promises.filter(p => p.reported > p.confirmed * 0.3).length;
-        if (issues > 0) {
-          const existing = catMap.get(cat.title) || { issues: 0, objects: new Set<number>() };
-          existing.issues += issues;
-          existing.objects.add(obj.id);
-          catMap.set(cat.title, existing);
-        }
-      });
-    });
-    return Array.from(catMap.entries())
-      .map(([name, data]) => ({ name, issues: data.issues, objectCount: data.objects.size }))
-      .sort((a, b) => b.issues - a.issues)
-      .slice(0, 5);
-  }, [filtered]);
+  const summary = data?.summary;
+  const topObjects = data?.topAttentionObjects ?? [];
+  const problemCats = data?.problemCategories ?? [];
+  const signals = data?.latestSignals ?? [];
+  const noVerif = data?.objectsWithoutVerifications ?? [];
+  const geo = data?.geoSummary ?? [];
+  const districts = data?.districtSummary ?? [];
 
-  // Latest signals
-  const latestSignals = useMemo(() => {
-    const all: { obs: typeof INFRASTRUCTURE_OBJECTS[0]['observations'][0]; obj: InfraObject }[] = [];
-    filtered.forEach(obj => {
-      obj.observations.forEach(obs => all.push({ obs, obj }));
-    });
-    return all.slice(0, 5);
-  }, [filtered]);
-
-  // Objects without verifications
-  const noVerifications = useMemo(() => {
-    return filtered.filter(o => o.totalInspections < 5).slice(0, 5);
-  }, [filtered]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 800);
-  };
-
-  const statusColor = (status: string) => {
-    if (status === 'good') return 'text-success';
-    if (status === 'bad') return 'text-destructive';
-    return 'text-warning';
-  };
-
-  const statusLabel = (status: string) => {
-    if (status === 'good') return 'Tasdiqlangan';
-    if (status === 'bad') return 'Muammoli';
-    return 'Tekshiruvda';
-  };
+  const maxIssue = problemCats[0]?.issueCount || 1;
 
   return (
     <div className="flex justify-center bg-muted min-h-screen">
       <div className="w-full max-w-[480px] bg-background min-h-screen flex flex-col shadow-2xl">
 
-        {/* Header */}
-        <div className="sticky top-0 z-30 bg-background border-b border-border">
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border">
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
             <div className="flex items-center gap-3">
               <button
@@ -140,23 +119,23 @@ export default function Dashboard() {
             </div>
             <button
               onClick={handleRefresh}
+              disabled={isFetching}
               className="w-9 h-9 flex items-center justify-center rounded-xl hover:bg-secondary active:scale-95 transition-all"
             >
-              <RefreshCw className={`w-4.5 h-4.5 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 text-muted-foreground ${isFetching ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          {/* Filters */}
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto no-scrollbar">
-            {/* Type chips */}
-            {TYPE_OPTIONS.map(opt => (
+          {/* Type filter chips */}
+          <div className="flex gap-2 px-4 pb-2 overflow-x-auto no-scrollbar">
+            {TYPE_OPTIONS.map((opt) => (
               <button
                 key={opt.key}
                 onClick={() => setTypeFilter(opt.key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-colors shrink-0 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold whitespace-nowrap transition-all shrink-0 ${
                   typeFilter === opt.key
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-secondary text-muted-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'bg-secondary text-muted-foreground hover:bg-secondary/70'
                 }`}
               >
                 <opt.icon className="w-3.5 h-3.5" />
@@ -167,7 +146,7 @@ export default function Dashboard() {
 
           {/* Period selector */}
           <div className="flex gap-1.5 px-4 pb-3">
-            {PERIOD_OPTIONS.map(opt => (
+            {PERIOD_OPTIONS.map((opt) => (
               <button
                 key={opt.key}
                 onClick={() => setPeriod(opt.key)}
@@ -183,197 +162,319 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto pb-8">
+        {/* ── Content ─────────────────────────────────────────────────────── */}
+        <div className="flex-1 overflow-y-auto pb-10">
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 gap-2.5 p-4">
-            {[
-              { label: 'Jami obyektlar', value: totalObjects, icon: Building, color: 'text-primary', bg: 'bg-primary/10' },
-              { label: 'Muammoli', value: attentionObjects, icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
-              { label: 'Tekshiruvda', value: checkingObjects, icon: AlertTriangle, color: 'text-warning', bg: 'bg-warning/10' },
-              { label: 'Yangi xabarlar', value: totalObservations, icon: MessageSquare, color: 'text-primary', bg: 'bg-primary/10' },
-            ].map((kpi, i) => (
-              <motion.div
-                key={kpi.label}
-                custom={i}
-                initial="hidden"
-                animate="visible"
-                variants={cardVariant}
-                className="bg-card rounded-2xl border border-border p-4 active:scale-[0.97] transition-transform cursor-pointer"
-              >
-                <div className={`w-9 h-9 rounded-xl ${kpi.bg} flex items-center justify-center mb-2.5`}>
-                  <kpi.icon className={`w-4.5 h-4.5 ${kpi.color}`} />
-                </div>
-                <p className="text-2xl font-bold text-foreground">{kpi.value}</p>
-                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{kpi.label}</p>
+          <AnimatePresence mode="wait">
+            {isLoading ? (
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 gap-4">
+                <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                <p className="text-sm text-muted-foreground font-medium">Tahlil yuklanmoqda...</p>
               </motion.div>
-            ))}
-          </div>
-
-          {/* Mini map placeholder */}
-          <div className="px-4 mb-4">
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3">
-                <h2 className="text-sm font-bold text-foreground">Xarita ko'rinishi</h2>
-                <button
-                  onClick={() => navigate('/')}
-                  className="text-[11px] font-semibold text-primary flex items-center gap-0.5"
-                >
-                  Ochish <ChevronRight className="w-3.5 h-3.5" />
+            ) : error ? (
+              <motion.div key="error" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center justify-center py-32 gap-4 px-8 text-center">
+                <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <XCircle className="w-8 h-8 text-destructive" />
+                </div>
+                <div>
+                  <p className="font-bold text-foreground mb-1">Ma'lumot yuklanmadi</p>
+                  <p className="text-xs text-muted-foreground">Backend ishlayotganini tekshiring</p>
+                </div>
+                <button onClick={handleRefresh} className="py-2.5 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-bold active:scale-95 transition-transform">
+                  Qayta urinib ko'rish
                 </button>
-              </div>
-              <div className="h-[140px] bg-secondary/50 flex items-center justify-center relative">
-                {/* Mini map dots */}
-                {filtered.map(obj => {
-                  const x = ((obj.coords[1] - 69.15) / 0.25) * 100;
-                  const y = ((41.35 - obj.coords[0]) / 0.12) * 100;
-                  return (
-                    <div
-                      key={obj.id}
-                      className={`absolute w-2.5 h-2.5 rounded-full border-2 border-background ${
-                        obj.status === 'good' ? 'bg-success' : obj.status === 'bad' ? 'bg-destructive' : 'bg-warning'
-                      }`}
-                      style={{
-                        left: `${Math.max(5, Math.min(95, x))}%`,
-                        top: `${Math.max(10, Math.min(90, y))}%`
-                      }}
-                    />
-                  );
-                })}
-                <p className="text-[10px] text-muted-foreground absolute bottom-2 right-3">Toshkent shahri</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Top problematic objects */}
-          <Section title="Muammoli obyektlar" icon={ShieldAlert}>
-            {topProblematic.length === 0 ? (
-              <EmptyState text="Muammoli obyektlar hozircha yo'q" />
+              </motion.div>
             ) : (
-              <div className="space-y-2">
-                {topProblematic.map((obj, i) => (
-                  <motion.div
-                    key={obj.id}
-                    custom={i}
-                    initial="hidden"
-                    animate="visible"
-                    variants={cardVariant}
-                    onClick={() => navigate('/', { state: { openObject: obj.id } })}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border cursor-pointer active:scale-[0.98] transition-transform"
-                  >
-                    <img src={obj.image} alt={obj.name} className="w-11 h-11 rounded-xl object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-foreground truncate">{obj.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
-                          <MapPin className="w-3 h-3" /> {obj.district || obj.address}
-                        </span>
-                        <span className={`text-[10px] font-semibold ${statusColor(obj.status)}`}>
-                          {statusLabel(obj.status)}
-                        </span>
+              <motion.div key="content" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+
+                {/* ── KPI Cards ─────────────────────────────────────────── */}
+                <div className="grid grid-cols-2 gap-2.5 p-4">
+                  {[
+                    { label: 'Jami obyektlar', value: summary?.totalObjects ?? 0, icon: Building, color: 'text-primary', bg: 'bg-primary/10' },
+                    { label: 'Muammoli', value: summary?.attentionObjects ?? 0, icon: XCircle, color: 'text-destructive', bg: 'bg-destructive/10' },
+                    { label: 'Tekshiruvda', value: summary?.checkingObjects ?? 0, icon: AlertTriangle, color: 'text-warning', bg: 'bg-warning/10' },
+                    { label: 'Yangi xabarlar', value: summary?.newObservationsCount ?? 0, icon: MessageSquare, color: 'text-primary', bg: 'bg-primary/10' },
+                  ].map((kpi, i) => (
+                    <motion.div
+                      key={kpi.label}
+                      custom={i}
+                      initial="hidden"
+                      animate="visible"
+                      variants={fadeUp}
+                      className="bg-card rounded-2xl border border-border p-4"
+                    >
+                      <div className={`w-9 h-9 rounded-xl ${kpi.bg} flex items-center justify-center mb-2.5`}>
+                        <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
                       </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-bold text-destructive">{obj.observations.length}</p>
-                      <p className="text-[9px] text-muted-foreground">xabar</p>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-            )}
-          </Section>
+                      <p className="text-2xl font-black text-foreground">{kpi.value}</p>
+                      <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{kpi.label}</p>
+                    </motion.div>
+                  ))}
+                </div>
 
-          {/* Problem categories */}
-          <Section title="Ko'p muammoli kategoriyalar" icon={TrendingUp}>
-            {problemCategories.length === 0 ? (
-              <EmptyState text="Bu davr uchun ma'lumot topilmadi" />
-            ) : (
-              <div className="space-y-2">
-                {problemCategories.map((cat, i) => (
-                  <div key={cat.name} className="flex items-center justify-between p-3 rounded-xl bg-card border border-border">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{cat.name}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{cat.objectCount} obyektda</p>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-destructive">{cat.issues}</span>
-                      <span className="text-[10px] text-muted-foreground">muammo</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Section>
-
-          {/* Latest signals */}
-          <Section title="So'nggi signallar" icon={MessageSquare}>
-            {latestSignals.length === 0 ? (
-              <EmptyState text="Yangi signallar yo'q" />
-            ) : (
-              <div className="space-y-2">
-                {latestSignals.map(({ obs, obj }, i) => (
-                  <div key={obs.id} className="p-3 rounded-xl bg-card border border-border">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[10px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full">{obs.category}</span>
-                      <span className="text-[10px] text-muted-foreground">{obs.time}</span>
-                    </div>
-                    <p className="text-xs text-foreground font-medium leading-relaxed">{obs.text}</p>
-                    <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {obj.name}
+                {/* ── Activity row ──────────────────────────────────────── */}
+                <div className="flex gap-2.5 px-4 mb-4">
+                  <div className="flex-1 bg-card rounded-2xl border border-border p-3.5 text-center">
+                    <p className="text-xl font-black text-foreground">{summary?.verificationsCount ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-success" /> Tekshiruvlar
                     </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </Section>
+                  <div className="flex-1 bg-card rounded-2xl border border-border p-3.5 text-center">
+                    <p className="text-xl font-black text-foreground">{summary?.confirmedObjects ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 flex items-center justify-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-success" /> Tasdiqlangan
+                    </p>
+                  </div>
+                </div>
 
-          {/* Objects without verifications */}
-          <Section title="Tekshirilmagan obyektlar" icon={Eye}>
-            {noVerifications.length === 0 ? (
-              <EmptyState text="Barcha obyektlar tekshirilgan" />
-            ) : (
-              <div className="space-y-2">
-                {noVerifications.map((obj, i) => (
-                  <div
-                    key={obj.id}
-                    onClick={() => navigate('/', { state: { openObject: obj.id } })}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border cursor-pointer active:scale-[0.98] transition-transform"
-                  >
-                    <img src={obj.image} alt={obj.name} className="w-10 h-10 rounded-xl object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground truncate">{obj.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{obj.district || obj.address}</p>
+                {/* ── Mini-map ──────────────────────────────────────────── */}
+                <div className="px-4 mb-4">
+                  <div className="bg-card rounded-2xl border border-border overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <h2 className="text-sm font-bold text-foreground">Xarita ko'rinishi</h2>
+                      <button
+                        onClick={() => navigate('/')}
+                        className="text-[11px] font-semibold text-primary flex items-center gap-0.5 active:opacity-70"
+                      >
+                        Ochish <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-bold text-warning">{obj.totalInspections}</p>
-                      <p className="text-[9px] text-muted-foreground">tekshiruv</p>
+                    <div className="h-[160px] bg-secondary/40 relative overflow-hidden">
+                      {geo.map((o) => {
+                        const x = ((o.coords[1] - 69.15) / 0.25) * 100;
+                        const y = ((41.38 - o.coords[0]) / 0.13) * 100;
+                        return (
+                          <button
+                            key={o.id}
+                            onClick={() => navigate('/', { state: { openObject: o.id } })}
+                            className={`absolute w-3 h-3 rounded-full border-2 border-background transition-transform active:scale-110 ${statusBg(o.status)}`}
+                            style={{ left: `${Math.max(3, Math.min(97, x))}%`, top: `${Math.max(5, Math.min(92, y))}%` }}
+                            title={o.name}
+                          />
+                        );
+                      })}
+                      <p className="absolute bottom-2 right-3 text-[10px] text-muted-foreground">Toshkent shahri</p>
+                      {/* Legend */}
+                      <div className="absolute bottom-2 left-3 flex gap-2.5">
+                        {[['bg-success', 'Yaxshi'], ['bg-warning', 'Tekshiruvda'], ['bg-destructive', 'Muammo']].map(([bg, lbl]) => (
+                          <span key={lbl} className="flex items-center gap-1 text-[9px] text-muted-foreground">
+                            <span className={`w-2 h-2 rounded-full ${bg}`} />{lbl}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+
+                {/* ── District summary ──────────────────────────────────── */}
+                {districts.length > 0 && (
+                  <Section title="Tumanlar bo'yicha" icon={MapPin}>
+                    <div className="space-y-2">
+                      {districts.slice(0, 4).map((d, i) => (
+                        <motion.div key={d.district} custom={i} initial="hidden" animate="visible" variants={fadeUp}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-foreground truncate">{d.district}</p>
+                            <p className="text-[10px] text-muted-foreground">{d.total} ta obyekt</p>
+                          </div>
+                          <div className="flex gap-1.5 shrink-0">
+                            {d.attention > 0 && <span className="text-[10px] font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded-full">{d.attention}</span>}
+                            {d.checking > 0 && <span className="text-[10px] font-bold text-warning bg-warning/10 px-1.5 py-0.5 rounded-full">{d.checking}</span>}
+                            {d.confirmed > 0 && <span className="text-[10px] font-bold text-success bg-success/10 px-1.5 py-0.5 rounded-full">{d.confirmed}</span>}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {/* ── Top problematic objects ───────────────────────────── */}
+                <Section title="Muammoli obyektlar" icon={ShieldAlert}>
+                  {topObjects.length === 0 ? (
+                    <EmptyState text="Muammoli obyektlar hozircha yo'q" />
+                  ) : (
+                    <div className="space-y-2">
+                      {topObjects.map((obj: DashboardAttentionObject, i: number) => (
+                        <motion.div
+                          key={obj.id}
+                          custom={i}
+                          initial="hidden"
+                          animate="visible"
+                          variants={fadeUp}
+                          onClick={() => navigate('/', { state: { openObject: obj.id } })}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border cursor-pointer active:scale-[0.98] transition-transform"
+                        >
+                          <div className="relative shrink-0">
+                            <img src={obj.image} alt={obj.name} className="w-12 h-12 rounded-xl object-cover" />
+                            <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-background ${statusBg(obj.status)}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-foreground truncate">{obj.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">{typeLabel(obj.type)}</span>
+                              {obj.district && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                                  <MapPin className="w-2.5 h-2.5" />{obj.district}
+                                </span>
+                              )}
+                            </div>
+                            <span className={`text-[10px] font-semibold ${statusColor(obj.status)}`}>{statusLabel(obj.status)}</span>
+                          </div>
+                          <div className="text-right shrink-0 space-y-0.5">
+                            <div>
+                              <p className="text-sm font-black text-destructive leading-none">{obj.observationCount}</p>
+                              <p className="text-[9px] text-muted-foreground">xabar</p>
+                            </div>
+                            {obj.problematicPromises > 0 && (
+                              <div>
+                                <p className="text-xs font-bold text-warning leading-none">{obj.problematicPromises}</p>
+                                <p className="text-[9px] text-muted-foreground">muammo</p>
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                {/* ── Problem categories with progress bars ─────────────── */}
+                <Section title="Ko'p muammoli kategoriyalar" icon={TrendingUp}>
+                  {problemCats.length === 0 ? (
+                    <EmptyState text="Bu davr uchun ma'lumot topilmadi" />
+                  ) : (
+                    <div className="space-y-3">
+                      {problemCats.map((cat, i) => (
+                        <motion.div key={cat.categoryLabel} custom={i} initial="hidden" animate="visible" variants={fadeUp}>
+                          <div className="flex items-center justify-between mb-1">
+                            <p className="text-xs font-bold text-foreground">{cat.categoryLabel}</p>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-black text-destructive">{cat.issueCount}</span>
+                              <span className="text-[10px] text-muted-foreground">ta muammo · {cat.affectedObjectsCount} obyekt</span>
+                            </div>
+                          </div>
+                          <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(100, (cat.issueCount / maxIssue) * 100)}%` }}
+                              transition={{ duration: 0.6, delay: i * 0.07, ease: 'easeOut' }}
+                              className="h-full bg-destructive rounded-full"
+                            />
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                {/* ── Latest signals ─────────────────────────────────────── */}
+                <Section title="So'nggi signallar" icon={MessageSquare}>
+                  {signals.length === 0 ? (
+                    <EmptyState text="Yangi signallar yo'q" />
+                  ) : (
+                    <div className="space-y-2">
+                      {signals.map((sig: DashboardSignal, i: number) => (
+                        <motion.div
+                          key={sig.id}
+                          custom={i}
+                          initial="hidden"
+                          animate="visible"
+                          variants={fadeUp}
+                          onClick={() => navigate('/', { state: { openObject: sig.objectId } })}
+                          className="p-3 rounded-xl bg-card border border-border cursor-pointer active:scale-[0.98] transition-transform"
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                              {sig.category}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />{sig.timeLabel}
+                            </span>
+                          </div>
+                          <p className="text-xs text-foreground font-medium leading-relaxed line-clamp-2">{sig.text}</p>
+                          <p className="text-[10px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                            <MapPin className="w-2.5 h-2.5" />{sig.objectName}
+                            {sig.district && <span>· {sig.district}</span>}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+
+                {/* ── Objects without verifications ─────────────────────── */}
+                <Section title="Tekshirilmagan obyektlar" icon={Eye}>
+                  {noVerif.length === 0 ? (
+                    <EmptyState text="Barcha obyektlar tekshirilgan" />
+                  ) : (
+                    <div className="space-y-2">
+                      {noVerif.map((obj: DashboardAttentionObject, i: number) => (
+                        <motion.div
+                          key={obj.id}
+                          custom={i}
+                          initial="hidden"
+                          animate="visible"
+                          variants={fadeUp}
+                          onClick={() => navigate('/', { state: { openObject: obj.id } })}
+                          className="flex items-center gap-3 p-3 rounded-xl bg-card border border-border cursor-pointer active:scale-[0.98] transition-transform"
+                        >
+                          <img src={obj.image} alt={obj.name} className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-foreground truncate">{obj.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{obj.district || obj.address}</p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-xs font-black text-warning">{obj.totalInspections}</p>
+                            <p className="text-[9px] text-muted-foreground">tekshiruv</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/15">
+                        <Zap className="w-4 h-4 text-primary shrink-0" />
+                        <p className="text-xs text-primary font-semibold">Bu obyektlarga birinchi bo'lib kiring va tekshiring!</p>
+                      </div>
+                    </div>
+                  )}
+                </Section>
+
+                {/* ── Object type breakdown ─────────────────────────────── */}
+                {geo.length > 0 && (
+                  <div className="px-4 mb-4">
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <BarChart3 className="w-4 h-4 text-muted-foreground" />
+                      <h2 className="text-sm font-bold text-foreground">Turlar bo'yicha</h2>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(
+                        Object.entries(
+                          geo.reduce<Record<string, number>>((acc, o) => { acc[o.type] = (acc[o.type] || 0) + 1; return acc; }, {})
+                        ) as [string, number][]
+                      ).map(([t, count]) => {
+                        const TypeIcon = t === 'school' ? School : t === 'medical' ? Heart : GraduationCap;
+                        return (
+                          <div key={t} className="bg-card border border-border rounded-xl p-3 text-center">
+                            <TypeIcon className="w-5 h-5 text-muted-foreground mx-auto mb-1" />
+                            <p className="text-lg font-black text-foreground">{count}</p>
+                            <p className="text-[10px] text-muted-foreground">{typeLabel(t)}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+              </motion.div>
             )}
-          </Section>
-
-          {/* Activity summary */}
-          <div className="px-4 mb-4">
-            <div className="grid grid-cols-2 gap-2.5">
-              <div className="bg-card rounded-2xl border border-border p-4 text-center">
-                <p className="text-xl font-bold text-foreground">{totalVerifications}</p>
-                <p className="text-[10px] text-muted-foreground font-medium mt-1">Jami tekshiruvlar</p>
-              </div>
-              <div className="bg-card rounded-2xl border border-border p-4 text-center">
-                <p className="text-xl font-bold text-foreground">{totalObservations}</p>
-                <p className="text-[10px] text-muted-foreground font-medium mt-1">Jami xabarlar</p>
-              </div>
-            </div>
-          </div>
-
+          </AnimatePresence>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── Sub-components ────────────────────────────────────────────────────────────
 
 function Section({ title, icon: Icon, children }: { title: string; icon: typeof Building; children: React.ReactNode }) {
   return (

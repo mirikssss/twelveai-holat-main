@@ -98,5 +98,25 @@
     "image": "",
     "district": "Мирзо-Улугбекский",
     "address": "просп. Мирзо Улугбека, 56"
+  },
+  {
+    "id": 11,
+    "externalId": null,
+    "name": "Мактаб №117",
+    "type": "school",
+    "coords": [41.3378, 69.3342],
+    "image": "",
+    "district": "Мирзо-Улугбекский",
+    "address": "ул. Зиёлилар, 15"
+  },
+  {
+    "id": 12,
+    "externalId": null,
+    "name": "Мактаб №256",
+    "type": "school",
+    "coords": [41.3392, 69.3368],
+    "image": "",
+    "district": "Мирзо-Улугбекский",
+    "address": "ул. Дурмон йули, 28"
   }
 ]

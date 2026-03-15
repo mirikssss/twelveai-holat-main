@@ -80,6 +80,15 @@ const findBestImageForObject = (obj) => {
   }
   if (bestFile && bestScore >= 0.25) return `/${dirName}/${bestFile}`;
 
+  // 4) For schools: if no match, assign different image per object (by id) so no two schools share the same photo
+  if (dirName === 'schools' && files.length > 0) {
+    const sorted = [...files].sort();
+    const index = Number(obj.id) && !Number.isNaN(Number(obj.id))
+      ? (Number(obj.id) - 1) % sorted.length
+      : (obj.name || '').length % sorted.length;
+    return `/${dirName}/${sorted[index]}`;
+  }
+
   return '';
 };
 
