@@ -68,11 +68,12 @@ export default function Index() {
       setUserLocation([41.2995, 69.2401]);
       return;
     }
-    navigator.geolocation.getCurrentPosition(
+    const watchId = navigator.geolocation.watchPosition(
       (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
-      () => setUserLocation([41.2995, 69.2401]),
-      { enableHighAccuracy: true, timeout: 8000 }
+      () => setUserLocation((prev) => prev ?? [41.2995, 69.2401]),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
+    return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
   // Load full object detail (categories, observations) when sheet opens.

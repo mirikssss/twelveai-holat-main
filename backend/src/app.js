@@ -14,6 +14,10 @@ const createApp = () => {
   const publicDir = path.resolve(__dirname, '..', 'public');
   app.use(express.static(publicDir));
 
+  app.get('/', (req, res) => {
+    res.json({ name: 'Holat API', status: 'ok', endpoints: ['/api/health', '/api/map/objects', '/api/map/objects/:id'] });
+  });
+
   app.get('/api/health', (req, res) => {
     res.json({ ok: true });
   });
