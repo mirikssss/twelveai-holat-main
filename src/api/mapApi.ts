@@ -5,7 +5,8 @@
 
 import type { InfraObject, PromiseStatus } from '@/data/infrastructure';
 
-const BASE = (typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) || '';
+const RAW_BASE = (typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) || '';
+const BASE = RAW_BASE.replace(/\/+$/, '');
 
 export type MapObjectType = 'school' | 'university' | 'medical';
 export type MapObjectStatus = PromiseStatus;
