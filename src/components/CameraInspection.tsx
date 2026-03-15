@@ -122,18 +122,18 @@ export default function CameraInspection({ promise, onClose }: Props) {
         <canvas ref={canvasRef} className="hidden" />
       </div>
 
-      {/* Actions */}
+      {/* Actions — site semantic colors (same as StatusBadge, PromiseItem) */}
       <div className="p-5 pb-8">
         <div className="flex gap-3 mb-4">
           <button
-            className="flex-1 bg-success text-success-foreground h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold"
+            className="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold bg-[hsl(var(--success))] text-white hover:opacity-90"
             onClick={() => submit('works')}
           >
             <CheckCircle2 className="w-6 h-6" />
             <span className="text-sm">Ishlaydi ✓</span>
           </button>
           <button
-            className="flex-1 bg-destructive text-destructive-foreground h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold"
+            className="flex-1 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform font-bold bg-[hsl(var(--destructive))] text-white hover:opacity-90"
             onClick={() => submit('broken')}
           >
             <AlertCircle className="w-6 h-6" />

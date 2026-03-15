@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Search, ChevronDown, MapPin, School, Heart, Baby, Trophy, GraduationCap, Construction, CheckCircle2, AlertTriangle, XCircle, Clock, Building } from 'lucide-react';
 import MapView from '@/components/MapView';
 import StatusBadge from '@/components/StatusBadge';
@@ -7,13 +7,17 @@ import ObjectSheet from '@/components/ObjectSheet';
 import CameraInspection from '@/components/CameraInspection';
 import HamburgerMenu from '@/components/HamburgerMenu';
 import { useMapObjects } from '@/hooks/useMapObjects';
+import { fetchObjectDetail, detailResponseToInfraObject } from '@/api/mapApi';
 import { type InfraObject, type InfraPromise, type ObjectType } from '@/data/infrastructure';
 
 type StatusFilter = 'all' | 'good' | 'mixed' | 'bad';
 type TypeFilter = 'all' | ObjectType;
 
+const TYPE_FILTER_DEFAULT_LABEL = "Tur";
+const STATUS_FILTER_DEFAULT_LABEL = "Holat";
+
 const TYPE_OPTIONS: { key: TypeFilter; label: string; icon: typeof School }[] = [
-  { key: 'all', label: 'Turi', icon: Building },
+  { key: 'all', label: 'Barchasi', icon: Building },
   { key: 'school', label: 'Maktablar', icon: School },
   { key: 'hospital', label: 'Shifoxonalar', icon: Heart },
   { key: 'kindergarten', label: "Bog'chalar", icon: Baby },
@@ -23,7 +27,7 @@ const TYPE_OPTIONS: { key: TypeFilter; label: string; icon: typeof School }[] = 
 ];
 
 const STATUS_OPTIONS: { key: StatusFilter; label: string; icon: typeof CheckCircle2 }[] = [
-  { key: 'all', label: 'Holati', icon: Clock },
+  { key: 'all', label: 'Barchasi', icon: Clock },
   { key: 'good', label: 'Tasdiqlangan', icon: CheckCircle2 },
   { key: 'mixed', label: 'Tekshirish kerak', icon: AlertTriangle },
   { key: 'bad', label: 'Muammolar', icon: XCircle },
@@ -70,6 +74,14 @@ export default function Index() {
     );
   }, []);
 
+  // Load full object detail (categories, observations) when sheet opens
+  useEffect(() => {
+    if (!selectedObject?.id) return;
+    fetchObjectDetail(selectedObject.id)
+      .then((d) => setSelectedObject(detailResponseToInfraObject(d)))
+      .catch(() => {});
+  }, [selectedObject?.id]);
+
   const { objects: filtered, isLoading, error } = useMapObjects({
     search,
     typeFilter,
@@ -92,6 +104,8 @@ export default function Index() {
 
   const currentType = TYPE_OPTIONS.find(o => o.key === typeFilter)!;
   const currentStatus = STATUS_OPTIONS.find(o => o.key === statusFilter)!;
+  const typeButtonLabel = typeFilter === 'all' ? TYPE_FILTER_DEFAULT_LABEL : currentType.label;
+  const statusButtonLabel = statusFilter === 'all' ? STATUS_FILTER_DEFAULT_LABEL : currentStatus.label;
 
   return (
     <div className="flex justify-center bg-muted min-h-screen">
@@ -135,26 +149,34 @@ export default function Index() {
                 onClick={() => { setTypeOpen(!typeOpen); setStatusOpen(false); }}
                 className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
               >
-                <span className="flex items-center gap-2">
-                  <currentType.icon className="w-4 h-4 text-muted-foreground" />
-                  {typeFilter === 'all' ? 'Turi' : currentType.label}
+                <span className="flex items-center gap-2 truncate">
+                  <currentType.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  {typeButtonLabel}
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${typeOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${typeOpen ? 'rotate-180' : ''}`} />
               </button>
-              {typeOpen && (
-                <div className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50">
-                  {TYPE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.key}
-                      onClick={() => { setTypeFilter(opt.key); setTypeOpen(false); }}
-                      className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${typeFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
-                    >
-                      <opt.icon className={`w-4 h-4 ${typeFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <AnimatePresence>
+                {typeOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50 overflow-hidden"
+                  >
+                    {TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => { setTypeFilter(opt.key); setTypeOpen(false); }}
+                        className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${typeFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                      >
+                        <opt.icon className={`w-4 h-4 ${typeFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Status filter */}
@@ -163,37 +185,51 @@ export default function Index() {
                 onClick={() => { setStatusOpen(!statusOpen); setTypeOpen(false); }}
                 className="w-full flex items-center justify-between bg-background/95 backdrop-blur-md px-3.5 py-2.5 rounded-xl shadow-md border border-border/50 text-xs font-semibold text-foreground"
               >
-                <span className="flex items-center gap-2">
-                  <currentStatus.icon className="w-4 h-4 text-muted-foreground" />
-                  {statusFilter === 'all' ? 'Holati' : currentStatus.label}
+                <span className="flex items-center gap-2 truncate">
+                  <currentStatus.icon className="w-4 h-4 shrink-0 text-muted-foreground" />
+                  {statusButtonLabel}
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${statusOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-muted-foreground transition-transform duration-200 ${statusOpen ? 'rotate-180' : ''}`} />
               </button>
-              {statusOpen && (
-                <div className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50">
-                  {STATUS_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.key}
-                      onClick={() => { setStatusFilter(opt.key); setStatusOpen(false); }}
-                      className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${statusFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
-                    >
-                      <opt.icon className={`w-4 h-4 ${statusFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <AnimatePresence>
+                {statusOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.96 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute top-full mt-1.5 left-0 right-0 bg-background rounded-xl shadow-lg border border-border/50 py-1 z-50 overflow-hidden"
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => { setStatusFilter(opt.key); setStatusOpen(false); }}
+                        className={`flex items-center gap-2.5 w-full text-left px-3.5 py-2.5 text-xs font-medium transition-colors ${statusFilter === opt.key ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-secondary'}`}
+                      >
+                        <opt.icon className={`w-4 h-4 ${statusFilter === opt.key ? 'text-primary' : 'text-muted-foreground'}`} />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </div>
 
-        {/* Bottom carousel */}
-        <div
-          ref={carouselRef}
-          className="absolute bottom-6 left-0 right-0 z-20 flex gap-3 px-3 overflow-x-auto snap-x snap-mandatory no-scrollbar"
-          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
-        >
-          {(isLoading ? [] : filtered).map((obj) => {
+        {/* Bottom carousel — only after geolocation known, with animation */}
+        <AnimatePresence>
+          {userLocation && (
+            <motion.div
+              ref={carouselRef}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 24 }}
+              transition={{ type: 'spring', damping: 24, stiffness: 300 }}
+              className="absolute bottom-6 left-0 right-0 z-20 flex gap-3 px-3 overflow-x-auto snap-x snap-mandatory no-scrollbar"
+              style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+            >
+              {(isLoading ? [] : filtered).map((obj) => {
             const dist = obj.distanceMeters ?? (userLocation ? getDistance(userLocation[0], userLocation[1], obj.coords[0], obj.coords[1]) : null);
             return (
               <div
@@ -223,7 +259,9 @@ export default function Index() {
               </div>
             );
           })}
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Close dropdowns on map tap */}
         {(typeOpen || statusOpen) && (

@@ -1,0 +1,293 @@
+{
+  "1": {
+    "categories": [
+      {
+        "id": "cat-1-sanitariya",
+        "title": "Sanitariya",
+        "promises": [
+          {
+            "id": "promise-1-1",
+            "title": "Yangi sovun dispenserlari",
+            "statusCode": "mixed",
+            "confirmedCount": 45,
+            "reportedCount": 38
+          },
+          {
+            "id": "promise-1-2",
+            "title": "Sensorsiz jo'mraklar",
+            "statusCode": "confirmed",
+            "confirmedCount": 82,
+            "reportedCount": 2
+          }
+        ]
+      },
+      {
+        "id": "cat-1-tibbiy",
+        "title": "Tibbiy xizmat",
+        "promises": [
+          {
+            "id": "promise-1-3",
+            "title": "Konsultatsiya vaqtida qabul",
+            "statusCode": "attention",
+            "confirmedCount": 12,
+            "reportedCount": 18
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-1-1",
+        "category": "Navbat / Xizmat sifati",
+        "text": "Navbat juda uzoq, 3 soatdan ko'p kutdim.",
+        "createdAt": "2026-03-15T09:00:00.000Z",
+        "photos": [],
+        "priority": 3
+      },
+      {
+        "id": "obs-1-2",
+        "category": "Sanitariya",
+        "text": "2-qavat hojatxonasida suv oqmayapti.",
+        "createdAt": "2026-03-14T14:30:00.000Z",
+        "photos": ["/medical/sample-1.jpg"],
+        "priority": 2
+      }
+    ]
+  },
+  "2": {
+    "categories": [
+      {
+        "id": "cat-2-talim",
+        "title": "Ta'lim",
+        "promises": [
+          {
+            "id": "promise-2-1",
+            "title": "Zamonaviy kompyuterlar",
+            "statusCode": "confirmed",
+            "confirmedCount": 95,
+            "reportedCount": 3
+          },
+          {
+            "id": "promise-2-2",
+            "title": "Internet tezligi",
+            "statusCode": "mixed",
+            "confirmedCount": 40,
+            "reportedCount": 25
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-2-1",
+        "category": "Internet / Aloqa",
+        "text": "Wi-Fi seanslar tez-tez uziladi.",
+        "createdAt": "2026-03-15T11:20:00.000Z",
+        "photos": [],
+        "priority": 2
+      }
+    ]
+  },
+  "3": {
+    "categories": [
+      {
+        "id": "cat-3-infra",
+        "title": "Infratuzilma",
+        "promises": [
+          {
+            "id": "promise-3-1",
+            "title": "Tom ta'miri",
+            "statusCode": "attention",
+            "confirmedCount": 5,
+            "reportedCount": 55
+          },
+          {
+            "id": "promise-3-2",
+            "title": "Suv ta'minoti",
+            "statusCode": "unchecked",
+            "confirmedCount": 0,
+            "reportedCount": 0
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-3-1",
+        "category": "Suv",
+        "text": "Suv bosimi juda past, 2-qavatda yo'q.",
+        "createdAt": "2026-03-15T08:00:00.000Z",
+        "photos": [],
+        "priority": 3
+      },
+      {
+        "id": "obs-3-2",
+        "category": "Infratuzilma",
+        "text": "Sport zal tomidan suv oqmoqda.",
+        "createdAt": "2026-03-13T16:00:00.000Z",
+        "photos": [],
+        "priority": 2
+      }
+    ]
+  },
+  "4": {
+    "categories": [
+      {
+        "id": "cat-4-jihozlar",
+        "title": "Jihozlar",
+        "promises": [
+          {
+            "id": "promise-4-1",
+            "title": "Interaktiv doskalar",
+            "statusCode": "mixed",
+            "confirmedCount": 30,
+            "reportedCount": 20
+          }
+        ]
+      }
+    ],
+    "observations": []
+  },
+  "5": {
+    "categories": [
+      {
+        "id": "cat-5-xavfsizlik",
+        "title": "Xavfsizlik",
+        "promises": [
+          {
+            "id": "promise-5-1",
+            "title": "Kuzatuv kameralari",
+            "statusCode": "confirmed",
+            "confirmedCount": 70,
+            "reportedCount": 5
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-5-1",
+        "category": "Xavfsizlik",
+        "text": "Asosiy eshikda qorovul yo'q.",
+        "createdAt": "2026-03-14T12:00:00.000Z",
+        "photos": [],
+        "priority": 1
+      }
+    ]
+  },
+  "6": {
+    "categories": [
+      {
+        "id": "cat-6-laboratoriya",
+        "title": "Laboratoriya",
+        "promises": [
+          {
+            "id": "promise-6-1",
+            "title": "Zamonaviy asboblar",
+            "statusCode": "confirmed",
+            "confirmedCount": 60,
+            "reportedCount": 8
+          }
+        ]
+      }
+    ],
+    "observations": []
+  },
+  "7": {
+    "categories": [
+      {
+        "id": "cat-7-tibbiy",
+        "title": "Tibbiy jihozlar",
+        "promises": [
+          {
+            "id": "promise-7-1",
+            "title": "Reagentlar zaxirasi",
+            "statusCode": "unchecked",
+            "confirmedCount": 0,
+            "reportedCount": 0
+          }
+        ]
+      }
+    ],
+    "observations": []
+  },
+  "8": {
+    "categories": [
+      {
+        "id": "cat-8-oquv",
+        "title": "O'quv binosi",
+        "promises": [
+          {
+            "id": "promise-8-1",
+            "title": "Konteynerlar ta'miri",
+            "statusCode": "mixed",
+            "confirmedCount": 25,
+            "reportedCount": 15
+          }
+        ]
+      }
+    ],
+    "observations": []
+  },
+  "9": {
+    "categories": [
+      {
+        "id": "cat-9-perinatal",
+        "title": "Perinatal markaz",
+        "promises": [
+          {
+            "id": "promise-9-1",
+            "title": "MRT apparati",
+            "statusCode": "confirmed",
+            "confirmedCount": 88,
+            "reportedCount": 4
+          },
+          {
+            "id": "promise-9-2",
+            "title": "Reanimatsiya jihozlari",
+            "statusCode": "confirmed",
+            "confirmedCount": 90,
+            "reportedCount": 2
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-9-1",
+        "category": "Navbat / Xizmat sifati",
+        "text": "Navbat uzoq, lekin xizmat yaxshi.",
+        "createdAt": "2026-03-15T07:30:00.000Z",
+        "photos": [],
+        "priority": 1
+      }
+    ]
+  },
+  "10": {
+    "categories": [
+      {
+        "id": "cat-10-endokrin",
+        "title": "Endokrinologiya",
+        "promises": [
+          {
+            "id": "promise-10-1",
+            "title": "Laboratoriya yangilanishi",
+            "statusCode": "attention",
+            "confirmedCount": 10,
+            "reportedCount": 22
+          }
+        ]
+      }
+    ],
+    "observations": [
+      {
+        "id": "obs-10-1",
+        "category": "Navbat / Xizmat sifati",
+        "text": "Taqsimotda navbat tizimi ishlamayapti.",
+        "createdAt": "2026-03-14T10:00:00.000Z",
+        "photos": [],
+        "priority": 2
+      }
+    ]
+  }
+}

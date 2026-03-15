@@ -27,6 +27,7 @@ const enrichRawObject = (raw) => {
     summary: fallbacks.summary,
     established: fallbacks.established,
     capitalRepair: fallbacks.capitalRepair,
+    light: fallbacks.light,
     water: fallbacks.water,
     internet: fallbacks.internet,
     totalInspections: fallbacks.totalInspections,

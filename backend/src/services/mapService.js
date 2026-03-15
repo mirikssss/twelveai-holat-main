@@ -1,6 +1,7 @@
 const { getAllObjects, getObjectById } = require('../repositories/objectRepository');
 const { haversineDistanceMeters } = require('../utils/distance');
 const { deriveStatus } = require('../utils/status');
+const { buildFullObjectDetail } = require('./objectDetailService');
 
 const DEFAULT_RADIUS_METERS = 2000;
 
@@ -71,7 +72,7 @@ const getMapObjects = ({ q, type, status, lat, lng, radius }) => {
 };
 
 const getMapObjectById = (id) => {
-  return getObjectById(id);
+  return buildFullObjectDetail(id);
 };
 
 const getMapMeta = () => {

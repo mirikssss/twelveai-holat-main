@@ -89,6 +89,10 @@ function getInternet(id) {
   return seedFromId(id) % 3 !== 0;
 }
 
+function getLight(id) {
+  return seedFromId(id) % 4 !== 0;
+}
+
 function getTotalInspections(id) {
   return (seedFromId(id) * 7) % 61;
 }
@@ -110,6 +114,7 @@ function getFallbacks(raw) {
     summary: raw.summary ?? getSummary(id),
     established: raw.established ?? getEstablished(id),
     capitalRepair: raw.capitalRepair ?? getCapitalRepair(id),
+    light: typeof raw.light === 'boolean' ? raw.light : getLight(id),
     water: typeof raw.water === 'boolean' ? raw.water : getWater(id),
     internet: typeof raw.internet === 'boolean' ? raw.internet : getInternet(id),
     totalInspections:

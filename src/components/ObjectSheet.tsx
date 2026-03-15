@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Droplets, Wifi, Hammer, CalendarDays, ChevronDown, MessageSquare, ArrowUpDown, Filter, AlertCircle, Camera, Send } from 'lucide-react';
+import { X, MapPin, Droplets, Wifi, Hammer, Sun, ChevronDown, MessageSquare, ArrowUpDown, Filter, AlertCircle, Camera, Send } from 'lucide-react';
 import type { InfraObject, InfraPromise } from '@/data/infrastructure';
 import PromiseItem from './PromiseItem';
 import ObservationCard from './ObservationCard';
@@ -48,8 +48,8 @@ export default function ObjectSheet({ object, onClose, onInspect }: Props) {
     : null;
 
   const infoCards = [
-    { icon: CalendarDays, label: "Qurilgan", value: object.established ? String(object.established) : "—" },
     { icon: Hammer, label: "Kapital ta'mir", value: object.capitalRepair || "—" },
+    { icon: Sun, label: "Svet", value: object.light ? "Bor" : "Yo'q", positive: object.light },
     { icon: Droplets, label: "Suv", value: object.water ? "Bor" : "Yo'q", positive: object.water },
     { icon: Wifi, label: "Internet", value: object.internet ? "Bor" : "Yo'q", positive: object.internet },
   ];
@@ -269,8 +269,8 @@ export default function ObjectSheet({ object, onClose, onInspect }: Props) {
               )}
             </AnimatePresence>
 
-            {/* CTA button - always after content */}
-            <div className="mt-auto pt-6 pb-4">
+            {/* CTA button - always after content, with safe bottom padding */}
+            <div className="mt-auto pt-6 pb-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={() => setReportOpen(true)}
                 className="w-full min-h-11 bg-primary text-primary-foreground py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-md"

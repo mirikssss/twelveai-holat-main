@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { X, Camera, Send, Droplets, Zap, Wifi, ShieldAlert, Wrench, HelpCircle, Users, Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,81 +20,193 @@ interface Props {
 }
 
 export default function ReportProblemSheet({ objectName, onClose }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
   const [comment, setComment] = useState('');
+
+  const startCamera = useCallback(async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.onloadedmetadata = () => setCameraReady(true);
+      }
+    } catch {
+      toast.error("Kameraga ruxsat berilmadi");
+    }
+  }, []);
+
+  useEffect(() => {
+    startCamera();
+    return () => {
+      stream?.getTracks().forEach(t => t.stop());
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const takePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    setCapturedImage(canvas.toDataURL('image/jpeg', 0.85));
+  };
+
+  const retakePhoto = () => {
+    setCapturedImage(null);
+  };
+
+  const canSubmit = Boolean(
+    selectedCategory &&
+    capturedImage &&
+    comment.trim().length > 0
+  );
 
   const handleSubmit = () => {
     if (!selectedCategory) {
       toast.error("Kategoriyani tanlang");
       return;
     }
+    if (!capturedImage) {
+      toast.error("Rasm talab qilinadi");
+      return;
+    }
+    if (!comment.trim()) {
+      toast.error("Muammo haqida batafsil yozing");
+      return;
+    }
     toast.success("Xabar yuborildi!", { description: `${objectName} — ${selectedCategory}` });
+    stream?.getTracks().forEach(t => t.stop());
+    onClose();
+  };
+
+  const handleClose = () => {
+    stream?.getTracks().forEach(t => t.stop());
     onClose();
   };
 
   return (
     <motion.div
-      initial={{ y: "100%" }}
-      animate={{ y: "15%" }}
-      exit={{ y: "100%" }}
-      transition={{ type: "spring", damping: 25, stiffness: 200 }}
-      className="absolute inset-0 z-50 bg-background rounded-t-[28px] shadow-[0_-8px_30px_rgba(0,0,0,0.15)] overflow-y-auto"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="absolute inset-0 z-50"
     >
-      <div className="sticky top-0 bg-background z-10 pt-2 pb-1 px-6 rounded-t-[28px]">
-        <div className="w-10 h-1 bg-border rounded-full mx-auto" />
+      {/* Backdrop — клик вне формы закрывает */}
+      <button
+        type="button"
+        aria-label="Yopish"
+        onClick={handleClose}
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      />
+      {/* Форма снизу — клик по ней не закрывает */}
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+        onClick={(e) => e.stopPropagation()}
+        className="absolute bottom-0 left-0 right-0 flex flex-col bg-foreground rounded-t-[28px] shadow-[0_-8px_30px_rgba(0,0,0,0.2)] overflow-hidden min-h-[88vh]"
+      >
+      {/* Header */}
+      <div className="p-4 flex justify-between items-start shrink-0">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-background/60">Muammo haqida xabar</p>
+          <h4 className="font-bold text-background text-sm mt-0.5">{objectName}</h4>
+        </div>
+        <button onClick={handleClose} className="p-2 bg-background/10 rounded-full">
+          <X className="w-5 h-5 text-background" />
+        </button>
       </div>
 
-      <div className="px-4 pb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-foreground">Muammo haqida xabar</h2>
-          <button onClick={onClose} className="p-2 bg-secondary rounded-full active:scale-90 transition-transform">
-            <X className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </div>
-
-        <p className="text-xs text-muted-foreground mb-4">Kategoriyani tanlang:</p>
-
-        <div className="grid grid-cols-2 gap-2 mb-5">
+      {/* Category — compact row */}
+      <div className="px-4 pb-3 shrink-0">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-background/70 mb-2">Kategoriyani tanlang</p>
+        <div className="flex flex-wrap gap-1.5">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.key}
               onClick={() => setSelectedCategory(cat.key)}
-              className={`flex items-center gap-2.5 p-3 rounded-xl text-xs font-medium transition-all active:scale-95 ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all active:scale-95 ${
                 selectedCategory === cat.key
                   ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'bg-secondary text-foreground'
+                  : 'bg-background/15 text-background border border-background/20'
               }`}
             >
-              <cat.icon className="w-4 h-4 shrink-0" />
+              <cat.icon className="w-3.5 h-3.5 shrink-0" />
               {cat.label}
             </button>
           ))}
         </div>
+      </div>
 
-        {/* Photo placeholder */}
-        <button className="w-full border-2 border-dashed border-border rounded-xl p-6 flex flex-col items-center gap-2 mb-4 active:bg-secondary transition-colors">
-          <Camera className="w-6 h-6 text-muted-foreground" />
-          <span className="text-xs text-muted-foreground font-medium">Rasm qo'shish</span>
-        </button>
+      {/* Viewfinder — camera open immediately */}
+      <div className="flex-1 relative mx-4 rounded-2xl overflow-hidden bg-foreground/80 flex items-center justify-center border border-background/10 min-h-[200px]">
+        {!capturedImage ? (
+          <>
+            <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover" />
+            {!cameraReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+                <Camera className="w-12 h-12 text-background/40" />
+                <p className="text-background/40 text-sm font-medium">Kamera yuklanmoqda...</p>
+              </div>
+            )}
+            {cameraReady && (
+              <button
+                onClick={takePhoto}
+                className="absolute bottom-4 z-10 w-14 h-14 border-4 border-background rounded-full flex items-center justify-center"
+              >
+                <div className="w-10 h-10 bg-background rounded-full active:scale-90 transition-transform" />
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <img src={capturedImage} className="absolute inset-0 w-full h-full object-cover" alt="Captured" />
+            <button
+              onClick={retakePhoto}
+              className="absolute top-3 right-3 z-10 bg-foreground/60 backdrop-blur-sm text-background text-xs font-bold px-3 py-1.5 rounded-full"
+            >
+              Qayta suratga olish
+            </button>
+          </>
+        )}
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
 
-        {/* Comment */}
+      {/* Comment + Submit — same style as CameraInspection bottom */}
+      <div className="p-4 pb-8 shrink-0">
         <textarea
           value={comment}
           onChange={e => setComment(e.target.value)}
-          placeholder="Muammo haqida batafsil yozing..."
-          rows={3}
-          className="w-full bg-secondary rounded-xl px-4 py-3 text-sm text-foreground outline-none resize-none placeholder:text-muted-foreground mb-4 border border-border/50 focus:border-primary/30 transition-colors"
+          placeholder="Muammo haqida batafsil yozing... *"
+          rows={2}
+          className="w-full bg-background/10 border border-background/20 rounded-xl px-4 py-3 text-background text-sm outline-none resize-none placeholder:text-background/40 focus:border-background/40 mb-4"
         />
-
-        {/* Submit */}
         <button
           onClick={handleSubmit}
-          className="w-full bg-primary text-primary-foreground py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] transition-transform shadow-md"
+          disabled={!canSubmit}
+          className={`w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-transform shadow-md ${
+            canSubmit
+              ? 'bg-primary text-primary-foreground active:scale-[0.97]'
+              : 'bg-background/20 text-background/50 cursor-not-allowed'
+          }`}
         >
           <Send className="w-4 h-4" />
           Yuborish
         </button>
       </div>
+      </motion.div>
     </motion.div>
   );
 }

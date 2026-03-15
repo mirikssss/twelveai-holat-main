@@ -23,6 +23,7 @@ export interface MapObject {
   summary: string;
   established: number | null;
   capitalRepair: string | null;
+  light?: boolean;
   water: boolean | null;
   internet: boolean | null;
   totalInspections: number;
@@ -68,6 +69,7 @@ export function toInfraObject(m: MapObject): InfraObject {
     established: m.established ?? undefined,
     district: m.district ?? undefined,
     capitalRepair: m.capitalRepair ?? undefined,
+    light: m.light ?? undefined,
     water: m.water ?? undefined,
     internet: m.internet ?? undefined,
     summary: m.summary,
@@ -92,4 +94,102 @@ export async function fetchMapObjects(params: MapObjectsParams = {}): Promise<Ma
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Map API error: ${res.status}`);
   return res.json();
+}
+
+/** Response shape from GET /api/map/objects/:id (object detail page). */
+export interface ObjectDetailResponse {
+  id: number;
+  name: string;
+  type: string;
+  image: string;
+  district: string | null;
+  address: string | null;
+  coords: { lat: number; lng: number };
+  objectStatus: { code: string; label: string };
+  passport: { established: number | null; capitalRepair: string | null; light: string; water: string; internet: string };
+  summary: string;
+  totalInspections?: number;
+  promiseCount?: number;
+  latestObservation: unknown;
+  newObservationsCount: number;
+  categories: Array<{
+    id: string;
+    title: string;
+    itemsCount: number;
+    promises: Array<{
+      id: string;
+      title: string;
+      status: { code: string; label: string };
+      confirmedCount: number;
+      reportedCount: number;
+    }>;
+  }>;
+  observations: Array<{
+    id: string;
+    category: string;
+    text: string;
+    createdAt: string;
+    timeLabel: string;
+    photos: string[];
+    priority: number;
+  }>;
+}
+
+/** Fetch full object detail for ObjectSheet (categories, observations). */
+export async function fetchObjectDetail(id: number): Promise<ObjectDetailResponse> {
+  const res = await fetch(`${BASE}/api/map/objects/${id}`);
+  if (!res.ok) throw new Error(`Object detail error: ${res.status}`);
+  return res.json();
+}
+
+/** Map objectStatus.code to frontend PromiseStatus. */
+function detailStatusToPromiseStatus(code: string): PromiseStatus {
+  if (code === 'confirmed') return 'good';
+  if (code === 'attention') return 'bad';
+  if (code === 'checking') return 'mixed';
+  return 'unverified';
+}
+
+/** Convert object detail API response to InfraObject for ObjectSheet. */
+export function detailResponseToInfraObject(d: ObjectDetailResponse): InfraObject {
+  const coords: [number, number] = [
+    d.coords?.lat ?? 0,
+    d.coords?.lng ?? 0,
+  ];
+  return {
+    id: d.id,
+    name: d.name,
+    type: mapApiTypeToFrontend(d.type),
+    address: d.address ?? '',
+    status: detailStatusToPromiseStatus(d.objectStatus?.code ?? ''),
+    coords,
+    image: d.image ?? '',
+    established: d.passport?.established ?? undefined,
+    district: d.district ?? undefined,
+    capitalRepair: d.passport?.capitalRepair ?? undefined,
+    light: d.passport?.light === 'Bor',
+    water: d.passport?.water === 'Bor',
+    internet: d.passport?.internet === 'Bor',
+    summary: d.summary ?? '',
+    totalInspections: d.totalInspections ?? 0,
+    promiseCount: d.promiseCount ?? 0,
+    categories: (d.categories ?? []).map((cat) => ({
+      title: cat.title,
+      promises: (cat.promises ?? []).map((p) => ({
+        id: p.id,
+        title: p.title,
+        confirmed: p.confirmedCount ?? 0,
+        reported: p.reportedCount ?? 0,
+        status: p.status?.label ?? '',
+      })),
+    })),
+    observations: (d.observations ?? []).map((obs) => ({
+      id: obs.id,
+      category: obs.category,
+      text: obs.text,
+      time: obs.timeLabel ?? '',
+      photos: obs.photos ?? [],
+      priority: obs.priority ?? 0,
+    })),
+  };
 }

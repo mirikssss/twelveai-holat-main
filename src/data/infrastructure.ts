@@ -34,6 +34,8 @@ export interface InfraObject {
   established?: number;
   district?: string;
   capitalRepair?: string;
+  /** Svet (elektr) — наличие света */
+  light?: boolean;
   water?: boolean;
   internet?: boolean;
   summary: string;
